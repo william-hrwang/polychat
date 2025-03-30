@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package chat;
+
+service ChatService {
+  rpc SendMessage (ChatMessage) returns (ChatAck);
+  rpc StreamMessages (UserInfo) returns (stream ChatMessage);
+}
+
+message ChatMessage {
+  string username = 1;
+  string message = 2;
+  string language = 3;
+}
+
+message ChatAck {
+  bool success = 1;
+}
+
+message UserInfo {
+  string username = 1;
+}
