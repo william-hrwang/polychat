@@ -15,14 +15,18 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         translation = self.translator.TranslateText(
             translate_pb2.TranslateRequest(
                 text=request.message,
-                target_lang='en'  # For now, fixed
+                target_lang='en'  # 后续可以动态改
             )
         )
+
+        translated_text = translation.translated_text
+
         for client in self.clients:
             client.write(chat_pb2.ChatMessage(
                 username=request.username,
-                message=translation.translated_text,
-                language='en'
+                message=translated_text,
+                original=request.message,  # 👈 新增原文字段
+                language=request.language
             ))
         return chat_pb2.ChatAck(success=True)
 

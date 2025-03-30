@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nchat.proto\x12\x04\x63hat\"B\n\x0b\x43hatMessage\x12\x10\n\x08username\x18\x01 \x01(\t\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x10\n\x08language\x18\x03 \x01(\t\"\x1a\n\x07\x43hatAck\x12\x0f\n\x07success\x18\x01 \x01(\x08\"\x1c\n\x08UserInfo\x12\x10\n\x08username\x18\x01 \x01(\t2u\n\x0b\x43hatService\x12/\n\x0bSendMessage\x12\x11.chat.ChatMessage\x1a\r.chat.ChatAck\x12\x35\n\x0eStreamMessages\x12\x0e.chat.UserInfo\x1a\x11.chat.ChatMessage0\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nchat.proto\x12\x04\x63hat\"T\n\x0b\x43hatMessage\x12\x10\n\x08username\x18\x01 \x01(\t\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x10\n\x08original\x18\x03 \x01(\t\x12\x10\n\x08language\x18\x04 \x01(\t\"\x1a\n\x07\x43hatAck\x12\x0f\n\x07success\x18\x01 \x01(\x08\"\x1c\n\x08UserInfo\x12\x10\n\x08username\x18\x01 \x01(\t2u\n\x0b\x43hatService\x12/\n\x0bSendMessage\x12\x11.chat.ChatMessage\x1a\r.chat.ChatAck\x12\x35\n\x0eStreamMessages\x12\x0e.chat.UserInfo\x1a\x11.chat.ChatMessage0\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,11 +32,11 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'chat_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_CHATMESSAGE']._serialized_start=20
-  _globals['_CHATMESSAGE']._serialized_end=86
-  _globals['_CHATACK']._serialized_start=88
-  _globals['_CHATACK']._serialized_end=114
-  _globals['_USERINFO']._serialized_start=116
-  _globals['_USERINFO']._serialized_end=144
-  _globals['_CHATSERVICE']._serialized_start=146
-  _globals['_CHATSERVICE']._serialized_end=263
+  _globals['_CHATMESSAGE']._serialized_end=104
+  _globals['_CHATACK']._serialized_start=106
+  _globals['_CHATACK']._serialized_end=132
+  _globals['_USERINFO']._serialized_start=134
+  _globals['_USERINFO']._serialized_end=162
+  _globals['_CHATSERVICE']._serialized_start=164
+  _globals['_CHATSERVICE']._serialized_end=281
 # @@protoc_insertion_point(module_scope)

@@ -10,7 +10,8 @@ service ChatService {
 message ChatMessage {
   string username = 1;
   string message = 2;
-  string language = 3;
+  string original = 3;
+  string language = 4;
 }
 
 message ChatAck {
