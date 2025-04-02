@@ -4,82 +4,364 @@
   <meta charset="UTF-8">
   <title>PolyChat</title>
   <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 30px auto; }
-    input, select, button { margin: 5px; padding: 5px; }
-    #chatbox { list-style: none; padding: 0; }
-    .message { margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
-    .username { font-weight: bold; }
-    .original { color: gray; font-size: 0.9em; }
-    .translated { font-size: 1.1em; margin: 5px 0; }
-    .tts-button { cursor: pointer; margin-left: 10px; }
+    body { 
+      font-family: sans-serif; 
+      max-width: 800px; 
+      margin: 30px auto;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .user-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .username {
+      font-weight: bold;
+      color: #333;
+    }
+    .status {
+      font-size: 0.9em;
+      color: #666;
+    }
+    .online {
+      color: #4CAF50;
+    }
+    .offline {
+      color: #999;
+    }
+    .logout-btn {
+      padding: 8px 16px;
+      background-color: #f44336;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .logout-btn:hover {
+      background-color: #d32f2f;
+    }
+    #chatbox { 
+      list-style: none; 
+      padding: 0;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+    .message { 
+      margin-bottom: 10px; 
+      border-bottom: 1px solid #ddd; 
+      padding-bottom: 5px;
+    }
+    .message-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 5px;
+    }
+    .message-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .message-username {
+      font-weight: bold;
+      color: #333;
+    }
+    .message-time {
+      font-size: 0.8em;
+      color: #999;
+      margin-left: auto;
+    }
+    .message-content {
+      margin-left: 40px;
+    }
+    .translated { 
+      font-size: 1.1em; 
+      margin: 5px 0;
+      color: #333;
+    }
+    .original { 
+      color: #666; 
+      font-size: 0.9em;
+      font-style: italic;
+    }
+    .tts-button { 
+      cursor: pointer; 
+      margin-left: 10px;
+      padding: 4px 8px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+    .tts-button:hover {
+      background-color: #45a049;
+    }
+    .input-area {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    input, select { 
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    #message {
+      flex-grow: 1;
+    }
+    button {
+      padding: 8px 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .error {
+      color: #f44336;
+      margin: 10px 0;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
-  <h2>🌍 PolyChat - Real-Time Translation</h2>
+  <div class="container">
+    <div class="header">
+      <div class="user-profile">
+        <img id="userAvatar" class="avatar" src="https://via.placeholder.com/40" alt="Avatar">
+        <div class="user-info">
+          <span id="userFullName" class="username"></span>
+          <span id="userStatus" class="status"></span>
+        </div>
+      </div>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
 
-  <label>Username: <input id="username" /></label><br/>
-  <label>Language:
-    <select id="language">
-      <option value="en">English</option>
-      <option value="fr">French</option>
-      <option value="zh-cn">Chinese</option>
-    </select>
-  </label><br/>
+    <div id="error" class="error"></div>
 
-  <input id="message" placeholder="Type a message..." />
-  <button onclick="send()">Send</button>
+    <div class="input-area">
+      <select id="language">
+        <option value="en">English</option>
+        <option value="fr">French</option>
+        <option value="zh-cn">Chinese</option>
+      </select>
+      <input id="message" placeholder="Type a message..." />
+      <button onclick="send()">Send</button>
+    </div>
 
-  <ul id="chatbox"></ul>
+    <ul id="chatbox"></ul>
+  </div>
 
   <script>
-    const socket = new WebSocket('ws://localhost:8080');
+    // Check authentication
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = '/login.html';
+    }
 
-    socket.onopen = () => console.log("✅ WebSocket connected!");
+    // WebSocket connection
+    let ws;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 5;
+    let messageIndex = 0; // Track message indices
 
-    const ttsAudioMap = new Map();  // Store audio per message
-
-    socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log("📩 Received:", data);
-
-        if (data.audio) {
-          // 用 base64 生成 Blob，存进 map
-          const audioBlob = base64ToBlob(data.audio, 'audio/mp3');
-          const audioUrl = URL.createObjectURL(audioBlob);
-          ttsAudioMap.set(ttsAudioMap.size, audioUrl); // 用 index 当 key
-        } else if (data.message) {
-          const chatbox = document.getElementById('chatbox');
-          const index = ttsAudioMap.size;
-
-          const li = document.createElement('li');
-          li.className = 'message';
-
-          li.innerHTML = `
-            <div class="username">${data.username}</div>
-            <div class="translated">${data.message}</div>
-            <div class="original">(original: <i>${data.original || '[unknown]'}</i>)</div>
-            <button class="tts-button" onclick="playAudio(${index})">🔊 Play</button>
-          `;
-          chatbox.appendChild(li);
-        }
-      } catch (e) {
-        console.error("WebSocket error:", e);
-      }
-    };
-
-    function send() {
-      const username = document.getElementById('username').value.trim();
-      const message = document.getElementById('message').value.trim();
-      const language = document.getElementById('language').value;
-
-      if (!username || !message) {
-        alert("Please enter both username and message.");
+    function connectWebSocket() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '/login.html';
         return;
       }
 
-      socket.send(JSON.stringify({ username, message, language }));
+      console.log('Connecting to WebSocket server...');
+      ws = new WebSocket(`ws://${window.location.host}?token=${token}`);
+      
+      ws.onopen = () => {
+        console.log('Connected to chat server');
+        reconnectAttempts = 0;
+        loadUserProfile();
+      };
+
+      ws.onmessage = (event) => {
+        console.log('Received message:', event.data);
+        const data = JSON.parse(event.data);
+        
+        switch (data.type) {
+          case 'history':
+            console.log('Received chat history');
+            // Clear existing messages
+            chatbox.innerHTML = '';
+            // Reset message index for history
+            messageIndex = 0;
+            // Add all historical messages
+            data.messages.forEach(msg => {
+              const messageElement = createMessageElement(msg);
+              chatbox.appendChild(messageElement);
+            });
+            break;
+          
+          case 'message':
+            console.log('Received new message');
+            const messageElement = createMessageElement(data);
+            chatbox.appendChild(messageElement);
+            break;
+          
+          case 'audio':
+            console.log('Received audio data for message index:', messageIndex - 1);
+            const audioBlob = base64ToBlob(data.audio, 'audio/mp3');
+            const audioUrl = URL.createObjectURL(audioBlob);
+            ttsAudioMap.set(messageIndex - 1, audioUrl); // Store URL for the last message
+            break;
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('Disconnected from chat server');
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttempts++;
+          setTimeout(connectWebSocket, 1000 * reconnectAttempts);
+        } else {
+          alert('Connection lost. Please refresh the page.');
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+    }
+
+    const ttsAudioMap = new Map();
+
+    async function loadUserProfile() {
+      try {
+        const response = await fetch('/api/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          const profile = data.profile;
+          document.getElementById('userFullName').textContent = profile.full_name;
+          document.getElementById('userAvatar').src = profile.avatar_url || 'https://via.placeholder.com/40';
+          
+          const statusElement = document.getElementById('userStatus');
+          statusElement.textContent = profile.is_online ? 'Online' : 'Offline';
+          statusElement.className = `status ${profile.is_online ? 'online' : 'offline'}`;
+        } else {
+          throw new Error(data.message);
+        }
+      } catch (error) {
+        console.error('Failed to load profile:', error);
+        document.getElementById('error').textContent = 'Failed to load profile. Please try again.';
+      }
+    }
+
+    async function logout() {
+      try {
+        const response = await fetch('/api/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          localStorage.removeItem('token');
+          window.location.href = '/login.html';
+        } else {
+          throw new Error(data.message);
+        }
+      } catch (error) {
+        console.error('Logout failed:', error);
+        document.getElementById('error').textContent = 'Logout failed. Please try again.';
+      }
+    }
+
+    function send() {
+      const message = document.getElementById('message').value.trim();
+      const language = document.getElementById('language').value;
+
+      if (!message) {
+        document.getElementById('error').textContent = 'Please enter a message.';
+        return;
+      }
+
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        console.error('WebSocket is not connected. Current state:', ws ? ws.readyState : 'not initialized');
+        document.getElementById('error').textContent = 'Not connected to chat server. Please refresh the page.';
+        return;
+      }
+
+      console.log('Sending message:', { username: localStorage.getItem('username'), message, language });
+      ws.send(JSON.stringify({
+        username: localStorage.getItem('username'),
+        message: message,
+        language: language
+      }));
+      
       document.getElementById('message').value = '';
+      document.getElementById('error').textContent = '';
+    }
+
+    function createMessageElement(msg) {
+      const li = document.createElement('li');
+      li.className = 'message';
+
+      const messageTime = new Date().toLocaleTimeString();
+      const currentIndex = messageIndex++; // Get current index and increment
+
+      li.innerHTML = `
+        <div class="message-header">
+          <img class="message-avatar" src="${msg.avatar_url || 'https://via.placeholder.com/30'}" alt="Avatar">
+          <span class="message-username">${msg.username}</span>
+          <span class="message-time">${messageTime}</span>
+        </div>
+        <div class="message-content">
+          <div class="translated">${msg.message}</div>
+          <div class="original">(original: <i>${msg.original || '[unknown]'}</i>)</div>
+          <button class="tts-button" onclick="playAudio(${currentIndex})">🔊 Play</button>
+        </div>
+      `;
+
+      // Scroll to bottom
+      const chatbox = document.getElementById('chatbox');
+      chatbox.appendChild(li);
+      chatbox.scrollTop = chatbox.scrollHeight;
+
+      return li;
     }
 
     function base64ToBlob(base64, mime) {
@@ -97,14 +379,27 @@
     }
 
     function playAudio(index) {
+      console.log('Attempting to play audio for index:', index);
       const url = ttsAudioMap.get(index);
       if (!url) {
-        alert("No audio available yet!");
+        console.log('No audio URL found for index:', index);
+        document.getElementById('error').textContent = "No audio available yet!";
         return;
       }
+      console.log('Playing audio from URL:', url);
       const audio = new Audio(url);
       audio.play().catch(err => console.warn("Audio play blocked:", err));
     }
+
+    // Handle Enter key
+    document.getElementById('message').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        send();
+      }
+    });
+
+    // Initialize WebSocket connection
+    connectWebSocket();
   </script>
 </body>
 </html>
