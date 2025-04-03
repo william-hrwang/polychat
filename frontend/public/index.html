@@ -42,16 +42,32 @@
     .username {
       font-weight: bold;
       color: #333;
+      font-size: 1.1em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .status {
-      font-size: 0.9em;
+    .account-name {
       color: #666;
+      font-size: 0.9em;
+      font-weight: normal;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.8em;
+      margin-left: 4px;
+      height: 20px;
     }
     .online {
-      color: #4CAF50;
+      background-color: #e8f5e9;
+      color: #2e7d32;
     }
     .offline {
-      color: #999;
+      background-color: #f5f5f5;
+      color: #757575;
     }
     .logout-btn {
       padding: 8px 16px;
@@ -103,11 +119,15 @@
       font-size: 1.1em; 
       margin: 5px 0;
       color: #333;
+      font-weight: 500;
     }
     .original { 
       color: #666; 
       font-size: 0.9em;
       font-style: italic;
+      margin: 5px 0;
+      padding-left: 10px;
+      border-left: 2px solid #ddd;
     }
     .tts-button { 
       cursor: pointer; 
@@ -159,8 +179,11 @@
       <div class="user-profile">
         <img id="userAvatar" class="avatar" src="https://via.placeholder.com/40" alt="Avatar">
         <div class="user-info">
-          <span id="userFullName" class="username"></span>
-          <span id="userStatus" class="status"></span>
+          <div class="username">
+            <span id="userFullName"></span>
+            <span class="account-name" id="accountName"></span>
+            <span id="userStatus" class="status-badge"></span>
+          </div>
         </div>
       </div>
       <button class="logout-btn" onclick="logout()">Logout</button>
@@ -193,6 +216,7 @@
     let reconnectAttempts = 0;
     const MAX_RECONNECT_ATTEMPTS = 5;
     let messageIndex = 0; // Track message indices
+    const ttsAudioMap = new Map();
 
     function connectWebSocket() {
       const token = localStorage.getItem('token');
@@ -211,8 +235,8 @@
       };
 
       ws.onmessage = (event) => {
-        console.log('Received message:', event.data);
         const data = JSON.parse(event.data);
+        console.log('📥 Received WebSocket message:', data.type);
         
         switch (data.type) {
           case 'history':
@@ -232,13 +256,48 @@
             console.log('Received new message');
             const messageElement = createMessageElement(data);
             chatbox.appendChild(messageElement);
+            // Store the current message index for audio
+            const currentIndex = messageIndex - 1;
+            // Wait a short time for the audio to arrive
+            setTimeout(() => {
+              if (!ttsAudioMap.has(currentIndex)) {
+                console.log('No audio received for message index:', currentIndex);
+                document.getElementById('error').textContent = "Audio processing...";
+              }
+            }, 1000);
             break;
           
           case 'audio':
-            console.log('Received audio data for message index:', messageIndex - 1);
-            const audioBlob = base64ToBlob(data.audio, 'audio/mp3');
-            const audioUrl = URL.createObjectURL(audioBlob);
-            ttsAudioMap.set(messageIndex - 1, audioUrl); // Store URL for the last message
+            console.log('Received audio data for message index:', data.messageIndex);
+            console.log('Audio data length:', data.audio.length);
+            try {
+              // Convert base64 to binary
+              const binaryString = atob(data.audio);
+              const bytes = new Uint8Array(binaryString.length);
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+              }
+              const audioBlob = new Blob([bytes], { type: 'audio/mpeg' });
+              const audioUrl = URL.createObjectURL(audioBlob);
+              console.log('Created audio URL:', audioUrl);
+              ttsAudioMap.set(data.messageIndex, audioUrl);
+              document.getElementById('error').textContent = "";
+              
+              // Find the message element and update its TTS button
+              const messageElements = document.querySelectorAll('.message');
+              messageElements.forEach(element => {
+                if (parseInt(element.dataset.index) === data.messageIndex) {
+                  const ttsButton = element.querySelector('.tts-button');
+                  if (ttsButton) {
+                    ttsButton.disabled = false;
+                    ttsButton.title = "Play audio";
+                  }
+                }
+              });
+            } catch (error) {
+              console.error('Error processing audio data:', error);
+              document.getElementById('error').textContent = "Error processing audio";
+            }
             break;
         }
       };
@@ -258,33 +317,61 @@
       };
     }
 
-    const ttsAudioMap = new Map();
+    function loadUserProfile() {
+      const token = localStorage.getItem('token');
+      const username = localStorage.getItem('username');
+      
+      if (!token || !username) {
+        window.location.href = '/login.html';
+        return;
+      }
 
-    async function loadUserProfile() {
-      try {
-        const response = await fetch('/api/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        const data = await response.json();
-        
+      // Set the account name
+      document.getElementById('accountName').textContent = `(@${username})`;
+
+      // Fetch user profile
+      fetch('/api/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
         if (data.success) {
-          const profile = data.profile;
-          document.getElementById('userFullName').textContent = profile.full_name;
-          document.getElementById('userAvatar').src = profile.avatar_url || 'https://via.placeholder.com/40';
-          
+          document.getElementById('userFullName').textContent = data.profile.full_name;
           const statusElement = document.getElementById('userStatus');
-          statusElement.textContent = profile.is_online ? 'Online' : 'Offline';
-          statusElement.className = `status ${profile.is_online ? 'online' : 'offline'}`;
+          statusElement.textContent = `(${data.profile.is_online ? 'Online' : 'Offline'})`;
+          statusElement.className = `status-badge ${data.profile.is_online ? 'online' : 'offline'}`;
+          
+          // Update avatar
+          const avatarImg = document.getElementById('userAvatar');
+          if (data.profile.avatar_url) {
+            console.log('Using avatar URL:', data.profile.avatar_url);
+            avatarImg.src = data.profile.avatar_url;
+          } else {
+            console.log('Fetching avatar data for:', username);
+            // If no avatar URL, fetch the avatar data with authentication
+            avatarImg.src = `/api/avatar/${username}?token=${token}`;
+          }
+
+          // Add error handling for avatar loading
+          avatarImg.onerror = (error) => {
+            console.error('Error loading avatar:', error);
+            avatarImg.src = 'data:image/svg+xml,' + encodeURIComponent(`
+              <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="50" fill="#ddd"/>
+                <path d="M50 50m-30 0a30 30 0 1 0 60 0a30 30 0 1 0 -60 0" fill="#fff"/>
+              </svg>
+            `);
+          };
         } else {
           throw new Error(data.message);
         }
-      } catch (error) {
-        console.error('Failed to load profile:', error);
-        document.getElementById('error').textContent = 'Failed to load profile. Please try again.';
-      }
+      })
+      .catch(error => {
+        console.error('Error loading profile:', error);
+        document.getElementById('error').textContent = 'Failed to load profile';
+      });
     }
 
     async function logout() {
@@ -311,56 +398,156 @@
     }
 
     function send() {
-      const message = document.getElementById('message').value.trim();
+      const messageInput = document.getElementById('message');
+      const message = messageInput.value.trim();
+      if (!message) return;
+
+      const token = localStorage.getItem('token');
+      const username = localStorage.getItem('username');
       const language = document.getElementById('language').value;
 
-      if (!message) {
-        document.getElementById('error').textContent = 'Please enter a message.';
-        return;
-      }
-
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        console.error('WebSocket is not connected. Current state:', ws ? ws.readyState : 'not initialized');
-        document.getElementById('error').textContent = 'Not connected to chat server. Please refresh the page.';
-        return;
-      }
-
-      console.log('Sending message:', { username: localStorage.getItem('username'), message, language });
-      ws.send(JSON.stringify({
-        username: localStorage.getItem('username'),
-        message: message,
-        language: language
-      }));
+      // Create message object with timestamp
+      const timestamp = new Date().toISOString();
+      console.log('Generated timestamp for new message:', timestamp);
       
-      document.getElementById('message').value = '';
-      document.getElementById('error').textContent = '';
+      const messageData = {
+        username: username,
+        message: message,
+        original_message: message, // Store the original message
+        language: language,
+        timestamp: timestamp
+      };
+
+      console.log('Sending message with data:', messageData);
+      ws.send(JSON.stringify(messageData));
+      messageInput.value = '';
     }
 
     function createMessageElement(msg) {
+      console.log('Creating message element with data:', msg);
+      console.log('Raw timestamp:', msg.timestamp);
+      
+      // Add detailed logging for message content
+      console.log('Message content details:');
+      console.log('- Original message:', msg.original || msg.original_message);
+      console.log('- Translated message:', msg.translated_message || msg.message);
+      console.log('- Main message:', msg.message);
+      console.log('- Current language:', document.getElementById('language').value);
+      console.log('- Is translated different from original:', (msg.translated_message || msg.message) !== (msg.original || msg.original_message));
+      console.log('- Is not English:', document.getElementById('language').value !== 'en');
+      
       const li = document.createElement('li');
       li.className = 'message';
+      li.dataset.index = messageIndex;
+      
+      const messageHeader = document.createElement('div');
+      messageHeader.className = 'message-header';
+      
+      const avatarImg = document.createElement('img');
+      avatarImg.className = 'message-avatar';
+      const token = localStorage.getItem('token');
+      if (msg.avatar_url) {
+        console.log('Using message avatar URL:', msg.avatar_url);
+        avatarImg.src = msg.avatar_url;
+      } else {
+        console.log('Fetching message avatar for:', msg.username);
+        avatarImg.src = `/api/avatar/${msg.username}?token=${token}`;
+      }
+      avatarImg.alt = `${msg.username}'s avatar`;
 
-      const messageTime = new Date().toLocaleTimeString();
-      const currentIndex = messageIndex++; // Get current index and increment
-
-      li.innerHTML = `
-        <div class="message-header">
-          <img class="message-avatar" src="${msg.avatar_url || 'https://via.placeholder.com/30'}" alt="Avatar">
-          <span class="message-username">${msg.username}</span>
-          <span class="message-time">${messageTime}</span>
-        </div>
-        <div class="message-content">
-          <div class="translated">${msg.message}</div>
-          <div class="original">(original: <i>${msg.original || '[unknown]'}</i>)</div>
-          <button class="tts-button" onclick="playAudio(${currentIndex})">🔊 Play</button>
-        </div>
-      `;
-
-      // Scroll to bottom
-      const chatbox = document.getElementById('chatbox');
-      chatbox.appendChild(li);
-      chatbox.scrollTop = chatbox.scrollHeight;
-
+      avatarImg.onerror = (error) => {
+        console.error('Error loading message avatar:', error);
+        avatarImg.src = 'data:image/svg+xml,' + encodeURIComponent(`
+          <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="50" fill="#ddd"/>
+            <path d="M50 50m-30 0a30 30 0 1 0 60 0a30 30 0 1 0 -60 0" fill="#fff"/>
+          </svg>
+        `);
+      };
+      
+      const usernameSpan = document.createElement('span');
+      usernameSpan.className = 'message-username';
+      usernameSpan.textContent = msg.username;
+      
+      const timeSpan = document.createElement('span');
+      timeSpan.className = 'message-time';
+      
+      // Log the timestamp processing
+      console.log('Processing timestamp:', msg.timestamp);
+      const date = new Date(msg.timestamp);
+      console.log('Parsed date:', date);
+      console.log('Is valid date:', !isNaN(date.getTime()));
+      
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date detected, using current time');
+        timeSpan.textContent = new Date().toLocaleString('en-GB', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).replace(',', '');
+      } else {
+        const formattedDate = date.toLocaleString('en-GB', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).replace(',', '');
+        console.log('Formatted date:', formattedDate);
+        timeSpan.textContent = formattedDate;
+      }
+      
+      messageHeader.appendChild(avatarImg);
+      messageHeader.appendChild(usernameSpan);
+      messageHeader.appendChild(timeSpan);
+      
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'message-content';
+      
+      const translatedDiv = document.createElement('div');
+      translatedDiv.className = 'translated';
+      translatedDiv.textContent = msg.translated_message || msg.message;
+      
+      // Add logging before checking conditions
+      console.log('Checking conditions for showing original message:');
+      const hasTranslatedMessage = msg.translated_message || msg.message;
+      const isDifferentFromOriginal = (msg.translated_message || msg.message) !== (msg.original || msg.original_message);
+      const isNotEnglish = document.getElementById('language').value !== 'en';
+      
+      console.log('- Has translated message:', hasTranslatedMessage);
+      console.log('- Is different from original:', isDifferentFromOriginal);
+      console.log('- Is not English:', isNotEnglish);
+      
+      // Only show original message if it's different from the translated message
+      // and the message is not in English
+      if (hasTranslatedMessage && isDifferentFromOriginal && isNotEnglish) {
+        console.log('Showing original message');
+        const originalDiv = document.createElement('div');
+        originalDiv.className = 'original';
+        originalDiv.textContent = msg.original || msg.original_message || msg.message;
+        contentDiv.appendChild(originalDiv);
+      } else {
+        console.log('Not showing original message - conditions not met');
+      }
+      
+      const ttsButton = document.createElement('button');
+      ttsButton.className = 'tts-button';
+      ttsButton.textContent = '🔊';
+      ttsButton.onclick = () => playAudio(parseInt(li.dataset.index));
+      
+      contentDiv.appendChild(translatedDiv);
+      contentDiv.appendChild(ttsButton);
+      
+      li.appendChild(messageHeader);
+      li.appendChild(contentDiv);
+      
+      messageIndex++;
       return li;
     }
 
@@ -387,8 +574,29 @@
         return;
       }
       console.log('Playing audio from URL:', url);
-      const audio = new Audio(url);
-      audio.play().catch(err => console.warn("Audio play blocked:", err));
+      const audio = new Audio();
+      audio.src = url;
+      audio.type = 'audio/mpeg';
+      
+      audio.onerror = (error) => {
+        console.error('Error playing audio:', error);
+        document.getElementById('error').textContent = "Error playing audio";
+      };
+      
+      audio.onloadeddata = () => {
+        console.log('Audio data loaded successfully');
+        audio.play().catch(err => {
+          console.warn("Audio play blocked:", err);
+          document.getElementById('error').textContent = "Audio playback blocked. Please try again.";
+        });
+      };
+      
+      audio.onended = () => {
+        console.log('Audio playback finished');
+        document.getElementById('error').textContent = "";
+      };
+      
+      audio.load();
     }
 
     // Handle Enter key

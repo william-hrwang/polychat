@@ -6,6 +6,20 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
+const multer = require('multer');
+// Configure multer to store files in memory and log details
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    console.log('Multer processing file:', file.originalname, file.mimetype);
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only images are allowed'));
+    }
+  }
+});
 
 // Load proto files
 const chatPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/chat.proto'));
@@ -14,7 +28,17 @@ const chatProto = grpc.loadPackageDefinition(chatPackageDef).chat;
 const ttsPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/tts.proto'));
 const ttsProto = grpc.loadPackageDefinition(ttsPackageDef).tts;
 
-const authPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/auth.proto'));
+// const authPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/auth.proto'));
+const authPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/auth.proto'), {
+  keepCase: true,
+  longs: String,
+  enums: String,
+  defaults: true,
+  oneofs: true,
+  includeDirs: [path.join(__dirname, 'grpc')],
+  bytes: Buffer  // 👈 THIS IS THE FIX
+});
+
 const authProto = grpc.loadPackageDefinition(authPackageDef).auth;
 
 // gRPC clients
@@ -42,9 +66,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
-  const token = req.headers['authorization'].split(' ')[1];
-  if (!token) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) {
     return res.status(401).json({ success: false, message: 'No token provided' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Invalid token format' });
   }
 
   authClient.VerifyToken({ token }, (err, response) => {
@@ -58,10 +87,21 @@ const authenticateToken = (req, res, next) => {
 
 // API Routes
 app.post('/api/register', (req, res) => {
+  console.log('Registration request received');
+  console.log('Request body keys:', Object.keys(req.body));
+  console.log('Has avatar_data:', 'avatar_data' in req.body);
+  if (req.body.avatar_data) {
+    console.log('Avatar data type:', typeof req.body.avatar_data);
+    console.log('Avatar data is array:', Array.isArray(req.body.avatar_data));
+    console.log('Avatar data length:', req.body.avatar_data.length);
+  }
+  
   authClient.Register(req.body, (err, response) => {
     if (err) {
+      console.error('gRPC Register error:', err);
       return res.status(500).json({ success: false, message: err.message });
     }
+    console.log('Registration response received from gRPC:', response.success);
     res.json(response);
   });
 });
@@ -75,6 +115,7 @@ app.post('/api/login', (req, res) => {
   });
 });
 
+// Protected routes that require authentication
 app.get('/api/profile', authenticateToken, (req, res) => {
   authClient.GetProfile({ username: req.user, token: req.headers['authorization'].split(' ')[1] }, (err, response) => {
     if (err) {
@@ -109,14 +150,130 @@ app.post('/api/logout', authenticateToken, (req, res) => {
   });
 });
 
+// Avatar upload endpoint
+app.post('/api/upload-avatar', (req, res, next) => {
+  console.log('Received request to /api/upload-avatar');
+  console.log('Headers:', req.headers);
+  next();
+}, authenticateToken, upload.single('image'), (req, res) => {
+  console.log('Avatar upload request received from authenticated user:', req.user);
+  
+  if (!req.file) {
+    console.error('No file found in the request. Form fields:', req.body);
+    return res.status(400).json({ success: false, message: 'No image file provided' });
+  }
+  
+  console.log('File received successfully:', { 
+    originalname: req.file.originalname,
+    mimetype: req.file.mimetype,
+    size: req.file.buffer.length,
+    buffer: req.file.buffer.length > 0 ? 'Contains data' : 'Empty buffer'
+  });
+
+  authClient.UploadAvatar({
+    username: req.user,  // Use the authenticated username from middleware
+    token: req.headers['authorization'].split(' ')[1],
+    image_data: Buffer.from(req.file.buffer)
+  }, (err, response) => {
+    console.log('👉 UploadAvatar sending image_data length:', req.file.buffer.length);
+    console.log("🧪 Type of image_data:", Buffer.isBuffer(req.file.buffer)); // 应该是 true
+
+    if (err) {
+      console.error('gRPC UploadAvatar error:', err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+    console.log('Avatar upload response from gRPC:', response);
+    res.json(response);
+  });
+});
+
+// Avatar retrieval endpoint
+app.get('/api/avatar/:username', (req, res) => {
+  console.log('Avatar request received for username:', req.params.username);
+  
+  // Get token from query parameters or authorization header
+  const token = req.query.token || (req.headers['authorization'] ? req.headers['authorization'].split(' ')[1] : null);
+  
+  if (!token) {
+    console.log('No token provided for avatar request');
+    return res.status(401).json({ success: false, message: 'No token provided' });
+  }
+
+  console.log('Calling GetAvatar gRPC with token');
+  authClient.GetAvatar({
+    username: req.params.username,
+    token: token
+  }, (err, response) => {
+    if (err) {
+      console.error('GetAvatar gRPC error:', err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+
+    console.log('GetAvatar response:', {
+      hasImageData: !!response.image_data,
+      hasImageUrl: !!response.image_url,
+      success: response.success
+    });
+
+    if (response.image_data) {
+      console.log('Sending binary image data');
+      // If we have binary image data, send it directly
+      res.set('Content-Type', 'image/jpeg');
+      res.send(response.image_data);
+    } else if (response.image_url) {
+      console.log('Redirecting to image URL:', response.image_url);
+      // If we have a URL, redirect to it
+      res.redirect(response.image_url);
+    } else {
+      console.log('No avatar data found, sending default avatar');
+      // If no avatar data or URL, send a default avatar
+      res.set('Content-Type', 'image/svg+xml');
+      res.send(`<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="50" fill="#ddd"/>
+        <path d="M50 50m-30 0a30 30 0 1 0 60 0a30 30 0 1 0 -60 0" fill="#fff"/>
+      </svg>`);
+    }
+  });
+});
+
 // Create HTTP server
 const server = http.createServer(app);
 
 // WebSocket server
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ 
+  server,
+  path: '/',
+  clientTracking: true,
+  perMessageDeflate: {
+    zlibDeflateOptions: {
+      chunkSize: 1024,
+      memLevel: 7,
+      level: 3
+    },
+    zlibInflateOptions: {
+      chunkSize: 10 * 1024
+    },
+    clientNoContextTakeover: true,
+    serverNoContextTakeover: true,
+    serverMaxWindowBits: 10,
+    concurrencyLimit: 10,
+    threshold: 1024
+  }
+});
+
+// Handle server errors
+server.on('error', (error) => {
+  console.error('Server error:', error);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+});
 
 // Store chat history
 let chatHistory = [];
+let messageIndex = 0; // Add message index tracking
 
 wss.on('connection', (ws, req) => {
   const token = new URL(req.url, 'http://localhost').searchParams.get('token');
@@ -204,6 +361,7 @@ stream.on('data', (msg) => {
   
   // Add message to chat history
   chatHistory.push(msg);
+  messageIndex++; // Increment message index
   
   // Keep only last 100 messages
   if (chatHistory.length > 100) {
@@ -232,8 +390,15 @@ stream.on('data', (msg) => {
       return;
     }
     
-    const audioData = response.audioData.toString('base64');
-    const audioPayload = JSON.stringify({ type: 'audio', audio: audioData });
+    // Convert the binary data to base64
+    const audioData = Buffer.from(response.audioData).toString('base64');
+    console.log("📦 TTS audio data length:", audioData.length);
+    const audioPayload = JSON.stringify({ 
+      type: 'audio', 
+      audio: audioData,
+      messageIndex: messageIndex - 1  // Use the current message index
+    });
+    console.log("📦 Sending audio payload to clients");
     clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(audioPayload);
@@ -242,10 +407,11 @@ stream.on('data', (msg) => {
   });
 });
 
-// Start server
+// Start the server
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(`📡 WebSocket server ready for connections`);
 });
 
 
