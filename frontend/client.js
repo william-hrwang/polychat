@@ -61,6 +61,9 @@ const clients = new Map(); // username -> WebSocket
 const app = express();
 app.use(bodyParser.json());
 
+// Add multer middleware for handling form data
+app.use(express.urlencoded({ extended: true }));
+
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -91,17 +94,37 @@ const authenticateToken = (req, res, next) => {
 };
 
 // API Routes
-app.post('/api/register', (req, res) => {
+app.post('/api/register', upload.single('avatar'), (req, res) => {
   console.log('Registration request received');
-  console.log('Request body keys:', Object.keys(req.body));
-  console.log('Has avatar_data:', 'avatar_data' in req.body);
-  if (req.body.avatar_data) {
-    console.log('Avatar data type:', typeof req.body.avatar_data);
-    console.log('Avatar data is array:', Array.isArray(req.body.avatar_data));
-    console.log('Avatar data length:', req.body.avatar_data.length);
-  }
+  console.log('Request body:', req.body);
+  console.log('Request file:', req.file);
+  
+  // Convert form data to the format expected by gRPC
+  const registerRequest = {
+    username: req.body.username,
+    email: req.body.email,
+    password: req.body.password,
+    full_name: req.body.full_name,
+    avatar_url: req.body.avatar_url
+  };
 
-  authClient.Register(req.body, (err, response) => {
+  // If there's an avatar file, add it to the request
+  if (req.file) {
+    console.log('Processing avatar file:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.buffer.length
+    });
+    // Convert the buffer to a proper Buffer object
+    registerRequest.avatar_data = req.file.buffer;
+  }
+  
+  console.log('Converted register request:', {
+    ...registerRequest,
+    avatar_data: registerRequest.avatar_data ? `Buffer of size ${registerRequest.avatar_data.length}` : 'None'
+  });
+  
+  authClient.Register(registerRequest, (err, response) => {
     if (err) {
       console.error('gRPC Register error:', err);
       return res.status(500).json({ success: false, message: err.message });
@@ -173,7 +196,7 @@ app.post('/api/upload-avatar', (req, res, next) => {
   next();
 }, authenticateToken, upload.single('image'), (req, res) => {
   console.log('Avatar upload request received from authenticated user:', req.user);
-
+  
   if (!req.file) {
     console.error('No file found in the request. Form fields:', req.body);
     return res.status(400).json({ success: false, message: 'No image file provided' });
@@ -186,30 +209,53 @@ app.post('/api/upload-avatar', (req, res, next) => {
     buffer: req.file.buffer.length > 0 ? 'Contains data' : 'Empty buffer'
   });
 
-  authClient.UploadAvatar({
-    username: req.user,  // Use the authenticated username from middleware
-    token: req.headers['authorization'].split(' ')[1],
-    image_data: Buffer.from(req.file.buffer)
-  }, (err, response) => {
-    console.log('👉 UploadAvatar sending image_data length:', req.file.buffer.length);
-    console.log("🧪 Type of image_data:", Buffer.isBuffer(req.file.buffer)); // 应该是 true
+  // If this is a registration request, just return the file data
+  if (!req.headers['authorization']) {
+    return res.json({
+      success: true,
+      message: 'Avatar received for registration',
+      file: {
+        buffer: req.file.buffer,
+        mimetype: req.file.mimetype
+      }
+    });
+  }
 
-    if (err) {
-      console.error('gRPC UploadAvatar error:', err);
-      return res.status(500).json({ success: false, message: err.message });
+  // For authenticated users, proceed with the gRPC call
+  const token = req.headers['authorization'].split(' ')[1];
+  authClient.VerifyToken({ token }, (err, response) => {
+    if (err || !response.success) {
+      return res.status(401).json({ success: false, message: 'Invalid token' });
     }
-    console.log('Avatar upload response from gRPC:', response);
-    res.json(response);
+
+    const username = response.username;
+    console.log('Avatar upload request received from authenticated user:', username);
+
+    authClient.UploadAvatar({
+      username: username,
+      token: token,
+      image_data: Buffer.from(req.file.buffer)
+    }, (err, response) => {
+      console.log('👉 UploadAvatar sending image_data length:', req.file.buffer.length);
+      console.log("🧪 Type of image_data:", Buffer.isBuffer(req.file.buffer));
+
+      if (err) {
+        console.error('gRPC UploadAvatar error:', err);
+        return res.status(500).json({ success: false, message: err.message });
+      }
+      console.log('Avatar upload response from gRPC:', response);
+      res.json(response);
+    });
   });
 });
 
 // Avatar retrieval endpoint
 app.get('/api/avatar/:username', (req, res) => {
   console.log('Avatar request received for username:', req.params.username);
-
+  
   // Get token from query parameters or authorization header
   const token = req.query.token || (req.headers['authorization'] ? req.headers['authorization'].split(' ')[1] : null);
-
+  
   if (!token) {
     console.log('No token provided for avatar request');
     return res.status(401).json({ success: false, message: 'No token provided' });
@@ -234,7 +280,7 @@ app.get('/api/avatar/:username', (req, res) => {
     if (response.image_data) {
       console.log('Sending binary image data');
       // If we have binary image data, send it directly
-      res.set('Content-Type', 'image/jpeg');
+      res.set('Content-Type', response.image_mimetype || 'image/jpeg');
       res.send(response.image_data);
     } else if (response.image_url) {
       console.log('Redirecting to image URL:', response.image_url);

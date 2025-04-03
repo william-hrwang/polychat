@@ -69,6 +69,11 @@ class AuthServiceStub(object):
                 request_serializer=auth__pb2.VerifyTokenRequest.SerializeToString,
                 response_deserializer=auth__pb2.VerifyTokenResponse.FromString,
                 _registered_method=True)
+        self.GetAllUsers = channel.unary_unary(
+                '/auth.AuthService/GetAllUsers',
+                request_serializer=auth__pb2.GetAllUsersRequest.SerializeToString,
+                response_deserializer=auth__pb2.GetAllUsersResponse.FromString,
+                _registered_method=True)
         self.UploadAvatar = channel.unary_unary(
                 '/auth.AuthService/UploadAvatar',
                 request_serializer=auth__pb2.UploadAvatarRequest.SerializeToString,
@@ -126,6 +131,12 @@ class AuthServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetAllUsers(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def UploadAvatar(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -175,6 +186,11 @@ def add_AuthServiceServicer_to_server(servicer, server):
                     servicer.VerifyToken,
                     request_deserializer=auth__pb2.VerifyTokenRequest.FromString,
                     response_serializer=auth__pb2.VerifyTokenResponse.SerializeToString,
+            ),
+            'GetAllUsers': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAllUsers,
+                    request_deserializer=auth__pb2.GetAllUsersRequest.FromString,
+                    response_serializer=auth__pb2.GetAllUsersResponse.SerializeToString,
             ),
             'UploadAvatar': grpc.unary_unary_rpc_method_handler(
                     servicer.UploadAvatar,
@@ -376,6 +392,33 @@ class AuthService(object):
             '/auth.AuthService/VerifyToken',
             auth__pb2.VerifyTokenRequest.SerializeToString,
             auth__pb2.VerifyTokenResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetAllUsers(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/auth.AuthService/GetAllUsers',
+            auth__pb2.GetAllUsersRequest.SerializeToString,
+            auth__pb2.GetAllUsersResponse.FromString,
             options,
             channel_credentials,
             insecure,

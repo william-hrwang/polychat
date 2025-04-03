@@ -584,52 +584,50 @@ class AuthService(AuthServiceServicer):
         finally:
             conn.close()
 
-    #Deckard Add, Status Check
     def GetAllUsers(self, request, context):
+        # Verify token first
         username = self.verify_token(request.token)
         if not username:
             return GetAllUsersResponse(
                 success=False,
-                message="Invalid or expired token",
-                users=[] # Initialize with empty array
+                message="Invalid or expired token"
             )
 
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
-
+        
         try:
+            # Get all users except the requesting user
             c.execute('''
                 SELECT username, email, full_name, avatar_url, status, is_online, last_seen
                 FROM users
-            ''')
-
-            users = c.fetchall()
-            user_profiles = []
-
-            for user in users:
-                # Convert None values to empty strings to avoid protocol buffer issues
-                user_profiles.append(UserProfile(
-                    username=user[0] or "",
-                    email=user[1] or "",
-                    full_name=user[2] or "",
-                    avatar_url=user[3] or "",
-                    status=user[4] or "",
-                    is_online=bool(user[5]),
-                    last_seen=user[6] or ""
+                WHERE username != ?
+                ORDER BY username
+            ''', (username,))
+            
+            users = []
+            for user in c.fetchall():
+                users.append(UserProfile(
+                    username=user[0],
+                    email=user[1],
+                    full_name=user[2],
+                    avatar_url=user[3],
+                    status=user[4],
+                    is_online=user[5],
+                    last_seen=user[6]
                 ))
 
-            # Always return a valid response with at least an empty array
             return GetAllUsersResponse(
                 success=True,
-                message="Users retrieved successfully" if user_profiles else "No users found",
-                users=user_profiles
+                message="Users retrieved successfully",
+                users=users
             )
 
         except Exception as e:
+            print(f"❌ Error getting all users: {str(e)}")
             return GetAllUsersResponse(
                 success=False,
-                message=f"Failed to get users: {str(e)}",
-                users=[] # Initialize with empty array on error
+                message=f"Failed to get users: {str(e)}"
             )
         finally:
             conn.close()
