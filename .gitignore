@@ -4,3 +4,7 @@
 .idea/polychat.iml
 .idea/vcs.xml
 .idea/workspace.xml
+users.db
+test_auth_service.py
+test.py
+run_note

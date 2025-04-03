@@ -10,6 +10,7 @@ service AuthService {
   rpc ChangePassword (ChangePasswordRequest) returns (AuthResponse);
   rpc Logout (LogoutRequest) returns (AuthResponse);
   rpc VerifyToken (VerifyTokenRequest) returns (VerifyTokenResponse);
+  rpc GetAllUsers (GetAllUsersRequest) returns (GetAllUsersResponse); //Deckard Add, Status Check
 }
 
 message RegisterRequest {
@@ -83,4 +84,16 @@ message VerifyTokenResponse {
   bool success = 1;
   string username = 2;
   string message = 3;
+}
+
+//Deckard Add, Status Check
+message GetAllUsersRequest {
+  string token = 1;
+}
+
+//Deckard Add, Status Check
+message GetAllUsersResponse {
+  bool success = 1;
+  string message = 2;
+  repeated UserProfile users = 3;
 } 

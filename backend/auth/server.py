@@ -136,17 +136,33 @@ class AuthService(AuthServiceServicer):
 
     def Login(self, request, context):
         conn = sqlite3.connect(self.db_path)
+        print("Using DB path:", self.db_path)
         c = conn.cursor()
         
         try:
             # Verify credentials
+            print("Input username:", request.username)
+            print("Input password:", request.password)
+            print("Hashed password:", self.hash_password(request.password))
             c.execute('''
                 SELECT username, email, full_name, avatar_url, status, is_online, last_seen
                 FROM users
                 WHERE username = ? AND password = ?
             ''', (request.username, self.hash_password(request.password)))
-            
             user = c.fetchone()
+
+
+            c.execute('SELECT password FROM users WHERE username = ?', (request.username,))
+            row = c.fetchone()
+            if row:
+                print("Stored password:", row[0])
+            else:
+                print("No user found")
+
+            if row:
+                print("Stored password:", row[0])
+            else:
+                print("No user found")
             if not user:
                 return AuthResponse(
                     success=False,
@@ -346,6 +362,56 @@ class AuthService(AuthServiceServicer):
             return AuthResponse(
                 success=False,
                 message=f"Logout failed: {str(e)}"
+            )
+        finally:
+            conn.close()
+
+    #Deckard Add, Status Check
+    def GetAllUsers(self, request, context):
+        username = self.verify_token(request.token)
+        if not username:
+            return GetAllUsersResponse(
+                success=False,
+                message="Invalid or expired token",
+                users=[] # Initialize with empty array
+            )
+
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        
+        try:
+            c.execute('''
+                SELECT username, email, full_name, avatar_url, status, is_online, last_seen
+                FROM users
+            ''')
+            
+            users = c.fetchall()
+            user_profiles = []
+            
+            for user in users:
+                # Convert None values to empty strings to avoid protocol buffer issues
+                user_profiles.append(UserProfile(
+                    username=user[0] or "",
+                    email=user[1] or "",
+                    full_name=user[2] or "",
+                    avatar_url=user[3] or "",
+                    status=user[4] or "",
+                    is_online=bool(user[5]),
+                    last_seen=user[6] or ""
+                ))
+
+            # Always return a valid response with at least an empty array
+            return GetAllUsersResponse(
+                success=True,
+                message="Users retrieved successfully" if user_profiles else "No users found",
+                users=user_profiles
+            )
+
+        except Exception as e:
+            return GetAllUsersResponse(
+                success=False,
+                message=f"Failed to get users: {str(e)}",
+                users=[] # Initialize with empty array on error
             )
         finally:
             conn.close()
