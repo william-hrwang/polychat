@@ -11,6 +11,8 @@ service AuthService {
   rpc Logout (LogoutRequest) returns (AuthResponse);
   rpc VerifyToken (VerifyTokenRequest) returns (VerifyTokenResponse);
   rpc GetAllUsers (GetAllUsersRequest) returns (GetAllUsersResponse); //Deckard Add, Status Check
+  rpc UploadAvatar (UploadAvatarRequest) returns (UploadAvatarResponse);
+  rpc GetAvatar (GetAvatarRequest) returns (GetAvatarResponse);
 }
 
 message RegisterRequest {
@@ -19,6 +21,7 @@ message RegisterRequest {
   string password = 3;
   string full_name = 4;
   string avatar_url = 5;
+  bytes avatar_data = 6;
 }
 
 message LoginRequest {
@@ -96,4 +99,27 @@ message GetAllUsersResponse {
   bool success = 1;
   string message = 2;
   repeated UserProfile users = 3;
-} 
+}
+
+message UploadAvatarRequest {
+  string username = 1;
+  string token = 2;
+  bytes image_data = 3;
+}
+
+message UploadAvatarResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetAvatarRequest {
+  string username = 1;
+  string token = 2;
+}
+
+message GetAvatarResponse {
+  bool success = 1;
+  string message = 2;
+  bytes image_data = 3;
+  string image_url = 4;
+}

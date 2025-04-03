@@ -22,6 +22,8 @@ class AuthService(AuthServiceServicer):
     def init_db(self):
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
+
+        # Create the users table if it doesn't exist
         c.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 username TEXT PRIMARY KEY,
@@ -29,11 +31,20 @@ class AuthService(AuthServiceServicer):
                 password TEXT,
                 full_name TEXT,
                 avatar_url TEXT,
+                avatar_data BLOB,
                 status TEXT,
                 is_online BOOLEAN,
                 last_seen TIMESTAMP
             )
         ''')
+
+        # Check if avatar_data column exists, if not add it
+        c.execute("PRAGMA table_info(users)")
+        columns = [column[1] for column in c.fetchall()]
+        if 'avatar_data' not in columns:
+            print("📝 Adding avatar_data column to users table")
+            c.execute('ALTER TABLE users ADD COLUMN avatar_data BLOB')
+
         conn.commit()
         conn.close()
 
@@ -72,6 +83,27 @@ class AuthService(AuthServiceServicer):
         )
 
     def Register(self, request, context):
+        print(f"🔍 Register: Full request details:")
+        print(f"🔍 Username: {request.username}")
+        print(f"🔍 Email: {request.email}")
+        print(f"🔍 Full name: {request.full_name}")
+        print(f"🔍 Has avatar_url: {bool(request.avatar_url)}")
+
+        # Check if avatar_data exists in the request
+        has_avatar_data = False
+        try:
+            has_avatar_data = hasattr(request, 'avatar_data') and request.avatar_data and len(request.avatar_data) > 0
+            print(f"🔍 Has avatar_data attribute: {hasattr(request, 'avatar_data')}")
+            if hasattr(request, 'avatar_data'):
+                print(f"🔍 Avatar data type: {type(request.avatar_data)}")
+                print(f"🔍 Avatar data length: {len(request.avatar_data) if request.avatar_data else 0}")
+        except Exception as e:
+            print(f"❌ Error checking avatar_data: {str(e)}")
+
+        print(f"📤 Register: Attempting to register user {request.username}")
+        print(f"📤 Register: Has avatar data: {has_avatar_data}")
+        print(f"📤 Register: Has avatar URL: {bool(request.avatar_url)}")
+
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
         
@@ -92,21 +124,58 @@ class AuthService(AuthServiceServicer):
                     message="Email already exists"
                 )
 
+            print(f"📤 Register: Attempting to register user {request.username}")
+            print(f"📤 Register: Has avatar data: {bool(request.avatar_data)}")
+            print(f"📤 Register: Has avatar URL: {bool(request.avatar_url)}")
+            if request.avatar_data:
+                print(f"📤 Register: Avatar data size: {len(request.avatar_data)} bytes")
+
             # Insert new user
+            try:
+                avatar_data_bytes = None
+                if hasattr(request, 'avatar_data') and request.avatar_data:
+                    print(f"📤 Register: Converting avatar data to bytes, length: {len(request.avatar_data)}")
+                    avatar_data_bytes = bytes(request.avatar_data)
+                    print(f"📤 Register: Converted avatar data to bytes, length: {len(avatar_data_bytes)}")
+
+                c.execute('''
+                    INSERT INTO users (
+                        username, email, password, full_name, 
+                        avatar_url, avatar_data, status, is_online, last_seen
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    request.username,
+                    request.email,
+                    self.hash_password(request.password),
+                    request.full_name,
+                    request.avatar_url,
+                    avatar_data_bytes,
+                    "Available",
+                    True,
+                    datetime.datetime.utcnow()
+                ))
+                print(f"📤 Register: Executed INSERT statement")
+                conn.commit()
+                print(f"📤 Register: Committed changes to database")
+            except Exception as e:
+                print(f"❌ Register: Error inserting user: {str(e)}")
+                raise e  # Re-raise to be caught by outer exception handler
+
+            # Verify the insertion
             c.execute('''
-                INSERT INTO users (username, email, password, full_name, avatar_url, status, is_online, last_seen)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                request.username,
-                request.email,
-                self.hash_password(request.password),
-                request.full_name,
-                request.avatar_url,
-                "Available",
-                True,
-                datetime.datetime.utcnow()
-            ))
-            conn.commit()
+                SELECT username, email, full_name, avatar_url, avatar_data, status, is_online, last_seen
+                FROM users
+                WHERE username = ?
+            ''', (request.username,))
+            user = c.fetchone()
+
+            if user:
+                print(f"✅ Register: Successfully registered user {request.username}")
+                if user[4]:  # avatar_data
+                    print(f"✅ Register: Stored avatar data size: {len(user[4])} bytes")
+            else:
+                print(f"❌ Register: Failed to verify user registration for {request.username}")
 
             # Generate token
             token = self.generate_token(request.username)
@@ -116,17 +185,18 @@ class AuthService(AuthServiceServicer):
                 token=token,
                 message="Registration successful",
                 profile=UserProfile(
-                    username=request.username,
-                    email=request.email,
-                    full_name=request.full_name,
-                    avatar_url=request.avatar_url,
-                    status="Available",
-                    is_online=True,
-                    last_seen=datetime.datetime.utcnow().isoformat()
+                    username=user[0],
+                    email=user[1],
+                    full_name=user[2],
+                    avatar_url=user[3],
+                    status=user[5],
+                    is_online=user[6],
+                    last_seen=user[7]
                 )
             )
 
         except Exception as e:
+            print(f"❌ Register: Error during registration: {str(e)}")
             return AuthResponse(
                 success=False,
                 message=f"Registration failed: {str(e)}"
@@ -135,39 +205,46 @@ class AuthService(AuthServiceServicer):
             conn.close()
 
     def Login(self, request, context):
+        print(f"🔑 Login: Attempt for user {request.username}")
+
         conn = sqlite3.connect(self.db_path)
-        print("Using DB path:", self.db_path)
         c = conn.cursor()
         
         try:
-            # Verify credentials
-            print("Input username:", request.username)
-            print("Input password:", request.password)
-            print("Hashed password:", self.hash_password(request.password))
-            c.execute('''
-                SELECT username, email, full_name, avatar_url, status, is_online, last_seen
-                FROM users
-                WHERE username = ? AND password = ?
-            ''', (request.username, self.hash_password(request.password)))
-            user = c.fetchone()
-
-
+            # First check if user exists and get stored password
             c.execute('SELECT password FROM users WHERE username = ?', (request.username,))
-            row = c.fetchone()
-            if row:
-                print("Stored password:", row[0])
-            else:
-                print("No user found")
+            stored_password_row = c.fetchone()
 
-            if row:
-                print("Stored password:", row[0])
-            else:
-                print("No user found")
-            if not user:
+            if not stored_password_row:
+                print(f"❌ Login: User {request.username} not found")
                 return AuthResponse(
                     success=False,
                     message="Invalid credentials"
                 )
+
+            stored_password = stored_password_row[0]
+            submitted_hash = self.hash_password(request.password)
+
+            print(f"🔍 Login: Comparing passwords")
+            print(f"🔍 Login: Stored hash: {stored_password}")
+            print(f"🔍 Login: Submitted hash: {submitted_hash}")
+
+            # Verify credentials
+            c.execute('''
+                SELECT username, email, full_name, avatar_url, status, is_online, last_seen
+                FROM users
+                WHERE username = ? AND password = ?
+            ''', (request.username, submitted_hash))
+            
+            user = c.fetchone()
+            if not user:
+                print(f"❌ Login: Password mismatch for {request.username}")
+                return AuthResponse(
+                    success=False,
+                    message="Invalid credentials"
+                )
+
+            print(f"✅ Login: Successful for {request.username}")
 
             # Generate token
             token = self.generate_token(request.username)
@@ -264,7 +341,11 @@ class AuthService(AuthServiceServicer):
         try:
             c.execute('''
                 UPDATE users
-                SET full_name = ?, avatar_url = ?, status = ?, is_online = ?, last_seen = ?
+                SET full_name = ?,
+                    avatar_url = ?,
+                    status = ?,
+                    is_online = ?,
+                    last_seen = ?
                 WHERE username = ?
             ''', (
                 request.full_name,
@@ -366,6 +447,143 @@ class AuthService(AuthServiceServicer):
         finally:
             conn.close()
 
+    def UploadAvatar(self, request, context):
+        username = self.verify_token(request.token)
+        if not username:
+            print(f"❌ UploadAvatar: Invalid token for user {request.username}")
+            return UploadAvatarResponse(
+                success=False,
+                message="Invalid or expired token"
+            )
+
+        print(f"📤 UploadAvatar: Attempting to upload avatar for user {request.username}")
+
+        if not request.image_data or len(request.image_data) == 0:
+            print(f"❌ UploadAvatar: No image data provided (length: {len(request.image_data) if request.image_data else 0})")
+            return UploadAvatarResponse(
+                success=False,
+                message="No image data provided"
+            )
+
+        print(f"📤 UploadAvatar: Image data size: {len(request.image_data)} bytes")
+        print(f"📤 UploadAvatar: First 20 bytes: {request.image_data[:20]}")
+
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        try:
+            # First check if user exists
+            c.execute('SELECT username FROM users WHERE username = ?', (request.username,))
+            if not c.fetchone():
+                print(f"❌ UploadAvatar: User {request.username} not found")
+                return UploadAvatarResponse(
+                    success=False,
+                    message="User not found"
+                )
+
+            c.execute('''
+                UPDATE users
+                SET avatar_data = ?,
+                    avatar_url = NULL
+                WHERE username = ?
+            ''', (request.image_data, request.username))
+            conn.commit()
+
+            # Verify the update
+            c.execute('SELECT avatar_data FROM users WHERE username = ?', (request.username,))
+            result = c.fetchone()
+            if result and result[0]:
+                print(f"✅ UploadAvatar: Successfully stored avatar for user {request.username}")
+                print(f"✅ UploadAvatar: Stored image size: {len(result[0])} bytes")
+            else:
+                print(f"❌ UploadAvatar: Failed to verify avatar storage for user {request.username}")
+
+            return UploadAvatarResponse(
+                success=True,
+                message="Avatar uploaded successfully"
+            )
+
+        except Exception as e:
+            print(f"❌ UploadAvatar: Error uploading avatar: {str(e)}")
+            return UploadAvatarResponse(
+                success=False,
+                message=f"Failed to upload avatar: {str(e)}"
+            )
+        finally:
+            conn.close()
+
+    def GetAvatar(self, request, context):
+        username = self.verify_token(request.token)
+        if not username:
+            print(f"❌ GetAvatar: Invalid token for user {request.username}")
+            return GetAvatarResponse(
+                success=False,
+                message="Invalid or expired token"
+            )
+
+        print(f"📥 GetAvatar: Attempting to get avatar for user {request.username}")
+
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        try:
+            c.execute('''
+                SELECT avatar_data, avatar_url
+                FROM users
+                WHERE username = ?
+            ''', (request.username,))
+
+            result = c.fetchone()
+            if not result:
+                print(f"❌ GetAvatar: User {request.username} not found")
+                return GetAvatarResponse(
+                    success=False,
+                    message="User not found"
+                )
+
+            avatar_data, avatar_url = result
+            print(f"📥 GetAvatar: Found user {request.username}")
+            print(f"📥 GetAvatar: Has avatar data: {bool(avatar_data)}")
+            print(f"📥 GetAvatar: Has avatar URL: {bool(avatar_url)}")
+            if avatar_data:
+                print(f"📥 GetAvatar: Avatar data size: {len(avatar_data)} bytes")
+
+            if avatar_data:
+                print(f"✅ GetAvatar: Returning binary avatar data for user {request.username}")
+                return GetAvatarResponse(
+                    success=True,
+                    message="Avatar found",
+                    image_data=avatar_data,
+                    image_url=""
+                )
+            elif avatar_url:
+                print(f"✅ GetAvatar: Returning avatar URL for user {request.username}: {avatar_url}")
+                return GetAvatarResponse(
+                    success=True,
+                    message="Avatar URL found",
+                    image_data=b"",
+                    image_url=avatar_url
+                )
+            else:
+                print(f"ℹ️ GetAvatar: No avatar found for user {request.username}")
+                return GetAvatarResponse(
+                    success=True,
+                    message="No avatar found",
+                    image_data=b"",
+                    image_url=""
+                )
+
+        except Exception as e:
+            print(f"❌ GetAvatar: Error getting avatar: {str(e)}")
+            return GetAvatarResponse(
+                success=False,
+                message=f"Failed to get avatar: {str(e)}",
+                image_data=b"",
+                image_url=""
+            )
+        finally:
+            conn.close()
+
     #Deckard Add, Status Check
     def GetAllUsers(self, request, context):
         username = self.verify_token(request.token)
@@ -378,16 +596,16 @@ class AuthService(AuthServiceServicer):
 
         conn = sqlite3.connect(self.db_path)
         c = conn.cursor()
-        
+
         try:
             c.execute('''
                 SELECT username, email, full_name, avatar_url, status, is_online, last_seen
                 FROM users
             ''')
-            
+
             users = c.fetchall()
             user_profiles = []
-            
+
             for user in users:
                 # Convert None values to empty strings to avoid protocol buffer issues
                 user_profiles.append(UserProfile(
