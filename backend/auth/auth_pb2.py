@@ -24,35 +24,43 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nauth.proto\x12\x04\x61uth\"k\n\x0fRegisterRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05\x65mail\x18\x02 \x01(\t\x12\x10\n\x08password\x18\x03 \x01(\t\x12\x11\n\tfull_name\x18\x04 \x01(\t\x12\x12\n\navatar_url\x18\x05 \x01(\t\"2\n\x0cLoginRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\"c\n\x0c\x41uthResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05token\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\x12\"\n\x07profile\x18\x04 \x01(\x0b\x32\x11.auth.UserProfile\"1\n\x0eProfileRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\"\x94\x01\n\x14UpdateProfileRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\x12\x11\n\tfull_name\x18\x03 \x01(\t\x12\x12\n\navatar_url\x18\x04 \x01(\t\x12\x0e\n\x06status\x18\x05 \x01(\t\x12\x11\n\tis_online\x18\x06 \x01(\x08\x12\x11\n\tlast_seen\x18\x07 \x01(\t\"d\n\x15\x43hangePasswordRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\x12\x14\n\x0cold_password\x18\x03 \x01(\t\x12\x14\n\x0cnew_password\x18\x04 \x01(\t\"0\n\rLogoutRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\"W\n\x0fProfileResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\"\n\x07profile\x18\x03 \x01(\x0b\x32\x11.auth.UserProfile\"\x8b\x01\n\x0bUserProfile\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05\x65mail\x18\x02 \x01(\t\x12\x11\n\tfull_name\x18\x03 \x01(\t\x12\x12\n\navatar_url\x18\x04 \x01(\t\x12\x0e\n\x06status\x18\x05 \x01(\t\x12\x11\n\tis_online\x18\x06 \x01(\x08\x12\x11\n\tlast_seen\x18\x07 \x01(\t\"#\n\x12VerifyTokenRequest\x12\r\n\x05token\x18\x01 \x01(\t\"I\n\x13VerifyTokenResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x10\n\x08username\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t2\xae\x03\n\x0b\x41uthService\x12\x35\n\x08Register\x12\x15.auth.RegisterRequest\x1a\x12.auth.AuthResponse\x12/\n\x05Login\x12\x12.auth.LoginRequest\x1a\x12.auth.AuthResponse\x12\x39\n\nGetProfile\x12\x14.auth.ProfileRequest\x1a\x15.auth.ProfileResponse\x12\x42\n\rUpdateProfile\x12\x1a.auth.UpdateProfileRequest\x1a\x15.auth.ProfileResponse\x12\x41\n\x0e\x43hangePassword\x12\x1b.auth.ChangePasswordRequest\x1a\x12.auth.AuthResponse\x12\x31\n\x06Logout\x12\x13.auth.LogoutRequest\x1a\x12.auth.AuthResponse\x12\x42\n\x0bVerifyToken\x12\x18.auth.VerifyTokenRequest\x1a\x19.auth.VerifyTokenResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\nauth.proto\x12\x04\x61uth\"\x80\x01\n\x0fRegisterRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05\x65mail\x18\x02 \x01(\t\x12\x10\n\x08password\x18\x03 \x01(\t\x12\x11\n\tfull_name\x18\x04 \x01(\t\x12\x12\n\navatar_url\x18\x05 \x01(\t\x12\x13\n\x0b\x61vatar_data\x18\x06 \x01(\x0c\"2\n\x0cLoginRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\"c\n\x0c\x41uthResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05token\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\x12\"\n\x07profile\x18\x04 \x01(\x0b\x32\x11.auth.UserProfile\"1\n\x0eProfileRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\"\x94\x01\n\x14UpdateProfileRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\x12\x11\n\tfull_name\x18\x03 \x01(\t\x12\x12\n\navatar_url\x18\x04 \x01(\t\x12\x0e\n\x06status\x18\x05 \x01(\t\x12\x11\n\tis_online\x18\x06 \x01(\x08\x12\x11\n\tlast_seen\x18\x07 \x01(\t\"d\n\x15\x43hangePasswordRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\x12\x14\n\x0cold_password\x18\x03 \x01(\t\x12\x14\n\x0cnew_password\x18\x04 \x01(\t\"0\n\rLogoutRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\"W\n\x0fProfileResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\"\n\x07profile\x18\x03 \x01(\x0b\x32\x11.auth.UserProfile\"\x8b\x01\n\x0bUserProfile\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05\x65mail\x18\x02 \x01(\t\x12\x11\n\tfull_name\x18\x03 \x01(\t\x12\x12\n\navatar_url\x18\x04 \x01(\t\x12\x0e\n\x06status\x18\x05 \x01(\t\x12\x11\n\tis_online\x18\x06 \x01(\x08\x12\x11\n\tlast_seen\x18\x07 \x01(\t\"#\n\x12VerifyTokenRequest\x12\r\n\x05token\x18\x01 \x01(\t\"I\n\x13VerifyTokenResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x10\n\x08username\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\"J\n\x13UploadAvatarRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\x12\x12\n\nimage_data\x18\x03 \x01(\x0c\"8\n\x14UploadAvatarResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"3\n\x10GetAvatarRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\r\n\x05token\x18\x02 \x01(\t\"\\\n\x11GetAvatarResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x12\n\nimage_data\x18\x03 \x01(\x0c\x12\x11\n\timage_url\x18\x04 \x01(\t2\xb3\x04\n\x0b\x41uthService\x12\x35\n\x08Register\x12\x15.auth.RegisterRequest\x1a\x12.auth.AuthResponse\x12/\n\x05Login\x12\x12.auth.LoginRequest\x1a\x12.auth.AuthResponse\x12\x39\n\nGetProfile\x12\x14.auth.ProfileRequest\x1a\x15.auth.ProfileResponse\x12\x42\n\rUpdateProfile\x12\x1a.auth.UpdateProfileRequest\x1a\x15.auth.ProfileResponse\x12\x41\n\x0e\x43hangePassword\x12\x1b.auth.ChangePasswordRequest\x1a\x12.auth.AuthResponse\x12\x31\n\x06Logout\x12\x13.auth.LogoutRequest\x1a\x12.auth.AuthResponse\x12\x42\n\x0bVerifyToken\x12\x18.auth.VerifyTokenRequest\x1a\x19.auth.VerifyTokenResponse\x12\x45\n\x0cUploadAvatar\x12\x19.auth.UploadAvatarRequest\x1a\x1a.auth.UploadAvatarResponse\x12<\n\tGetAvatar\x12\x16.auth.GetAvatarRequest\x1a\x17.auth.GetAvatarResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'auth_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_REGISTERREQUEST']._serialized_start=20
-  _globals['_REGISTERREQUEST']._serialized_end=127
-  _globals['_LOGINREQUEST']._serialized_start=129
-  _globals['_LOGINREQUEST']._serialized_end=179
-  _globals['_AUTHRESPONSE']._serialized_start=181
-  _globals['_AUTHRESPONSE']._serialized_end=280
-  _globals['_PROFILEREQUEST']._serialized_start=282
-  _globals['_PROFILEREQUEST']._serialized_end=331
-  _globals['_UPDATEPROFILEREQUEST']._serialized_start=334
-  _globals['_UPDATEPROFILEREQUEST']._serialized_end=482
-  _globals['_CHANGEPASSWORDREQUEST']._serialized_start=484
-  _globals['_CHANGEPASSWORDREQUEST']._serialized_end=584
-  _globals['_LOGOUTREQUEST']._serialized_start=586
-  _globals['_LOGOUTREQUEST']._serialized_end=634
-  _globals['_PROFILERESPONSE']._serialized_start=636
-  _globals['_PROFILERESPONSE']._serialized_end=723
-  _globals['_USERPROFILE']._serialized_start=726
-  _globals['_USERPROFILE']._serialized_end=865
-  _globals['_VERIFYTOKENREQUEST']._serialized_start=867
-  _globals['_VERIFYTOKENREQUEST']._serialized_end=902
-  _globals['_VERIFYTOKENRESPONSE']._serialized_start=904
-  _globals['_VERIFYTOKENRESPONSE']._serialized_end=977
-  _globals['_AUTHSERVICE']._serialized_start=980
-  _globals['_AUTHSERVICE']._serialized_end=1410
+  _globals['_REGISTERREQUEST']._serialized_start=21
+  _globals['_REGISTERREQUEST']._serialized_end=149
+  _globals['_LOGINREQUEST']._serialized_start=151
+  _globals['_LOGINREQUEST']._serialized_end=201
+  _globals['_AUTHRESPONSE']._serialized_start=203
+  _globals['_AUTHRESPONSE']._serialized_end=302
+  _globals['_PROFILEREQUEST']._serialized_start=304
+  _globals['_PROFILEREQUEST']._serialized_end=353
+  _globals['_UPDATEPROFILEREQUEST']._serialized_start=356
+  _globals['_UPDATEPROFILEREQUEST']._serialized_end=504
+  _globals['_CHANGEPASSWORDREQUEST']._serialized_start=506
+  _globals['_CHANGEPASSWORDREQUEST']._serialized_end=606
+  _globals['_LOGOUTREQUEST']._serialized_start=608
+  _globals['_LOGOUTREQUEST']._serialized_end=656
+  _globals['_PROFILERESPONSE']._serialized_start=658
+  _globals['_PROFILERESPONSE']._serialized_end=745
+  _globals['_USERPROFILE']._serialized_start=748
+  _globals['_USERPROFILE']._serialized_end=887
+  _globals['_VERIFYTOKENREQUEST']._serialized_start=889
+  _globals['_VERIFYTOKENREQUEST']._serialized_end=924
+  _globals['_VERIFYTOKENRESPONSE']._serialized_start=926
+  _globals['_VERIFYTOKENRESPONSE']._serialized_end=999
+  _globals['_UPLOADAVATARREQUEST']._serialized_start=1001
+  _globals['_UPLOADAVATARREQUEST']._serialized_end=1075
+  _globals['_UPLOADAVATARRESPONSE']._serialized_start=1077
+  _globals['_UPLOADAVATARRESPONSE']._serialized_end=1133
+  _globals['_GETAVATARREQUEST']._serialized_start=1135
+  _globals['_GETAVATARREQUEST']._serialized_end=1186
+  _globals['_GETAVATARRESPONSE']._serialized_start=1188
+  _globals['_GETAVATARRESPONSE']._serialized_end=1280
+  _globals['_AUTHSERVICE']._serialized_start=1283
+  _globals['_AUTHSERVICE']._serialized_end=1846
 # @@protoc_insertion_point(module_scope)
