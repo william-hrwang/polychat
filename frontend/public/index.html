@@ -2,206 +2,44 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PolyChat</title>
-  <style>
-    body { 
-      font-family: sans-serif; 
-      max-width: 800px; 
-      margin: 30px auto;
-      background-color: #f5f5f5;
-    }
-    .container {
-      background-color: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #eee;
-    }
-    .user-profile {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-    .user-info {
-      display: flex;
-      flex-direction: column;
-    }
-    .username {
-      font-weight: bold;
-      color: #333;
-      font-size: 1.1em;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .account-name {
-      color: #666;
-      font-size: 0.9em;
-      font-weight: normal;
-    }
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 0.8em;
-      margin-left: 4px;
-      height: 20px;
-    }
-    .online {
-      background-color: #e8f5e9;
-      color: #2e7d32;
-    }
-    .offline {
-      background-color: #f5f5f5;
-      color: #757575;
-    }
-    .logout-btn {
-      padding: 8px 16px;
-      background-color: #f44336;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .logout-btn:hover {
-      background-color: #d32f2f;
-    }
-    #chatbox { 
-      list-style: none; 
-      padding: 0;
-      max-height: 500px;
-      overflow-y: auto;
-    }
-    .message { 
-      margin-bottom: 10px; 
-      border-bottom: 1px solid #ddd; 
-      padding-bottom: 5px;
-    }
-    .message-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 5px;
-    }
-    .message-avatar {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-    .message-username {
-      font-weight: bold;
-      color: #333;
-    }
-    .message-time {
-      font-size: 0.8em;
-      color: #999;
-      margin-left: auto;
-    }
-    .message-content {
-      margin-left: 40px;
-    }
-    .translated { 
-      font-size: 1.1em; 
-      margin: 5px 0;
-      color: #333;
-      font-weight: 500;
-    }
-    .original { 
-      color: #666; 
-      font-size: 0.9em;
-      font-style: italic;
-      margin: 5px 0;
-      padding-left: 10px;
-      border-left: 2px solid #ddd;
-    }
-    .tts-button { 
-      cursor: pointer; 
-      margin-left: 10px;
-      padding: 4px 8px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 0.9em;
-    }
-    .tts-button:hover {
-      background-color: #45a049;
-    }
-    .input-area {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-    }
-    input, select { 
-      padding: 8px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-    }
-    #message {
-      flex-grow: 1;
-    }
-    button {
-      padding: 8px 16px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #45a049;
-    }
-    .error {
-      color: #f44336;
-      margin: 10px 0;
-      text-align: center;
-    }
-  </style>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <div class="user-profile">
-        <img id="userAvatar" class="avatar" src="https://via.placeholder.com/40" alt="Avatar">
-        <div class="user-info">
-          <div class="username">
-            <span id="userFullName"></span>
-            <span class="account-name" id="accountName"></span>
-            <span id="userStatus" class="status-badge"></span>
+    <div class="chat-container">
+      <div class="header">
+        <div class="user-profile">
+          <img id="userAvatar" class="avatar" src="https://via.placeholder.com/40" alt="Avatar">
+          <div class="user-info">
+            <div class="username">
+              <span id="userFullName"></span>
+              <span class="account-name" id="accountName"></span>
+              <span id="userStatus" class="status-badge"></span>
+            </div>
           </div>
         </div>
+        <button class="btn btn-danger" onclick="logout()">Logout</button>
       </div>
-      <button class="logout-btn" onclick="logout()">Logout</button>
+
+      <div id="error" class="error-message"></div>
+
+      <ul id="chatbox"></ul>
+
+      <div class="input-area">
+        <select id="language" class="select-language">
+          <option value="en">English</option>
+          <option value="fr">French</option>
+          <option value="zh-cn">Chinese</option>
+        </select>
+        <input id="message" class="message-input" placeholder="Type a message..." />
+        <button onclick="send()" class="btn btn-primary">Send</button>
+      </div>
     </div>
-
-    <div id="error" class="error"></div>
-
-    <div class="input-area">
-      <select id="language">
-        <option value="en">English</option>
-        <option value="fr">French</option>
-        <option value="zh-cn">Chinese</option>
-      </select>
-      <input id="message" placeholder="Type a message..." />
-      <button onclick="send()">Send</button>
-    </div>
-
-    <ul id="chatbox"></ul>
   </div>
 
   <script>
@@ -510,6 +348,9 @@
       const contentDiv = document.createElement('div');
       contentDiv.className = 'message-content';
       
+      const messageTextDiv = document.createElement('div');
+      messageTextDiv.className = 'message-text';
+      
       const translatedDiv = document.createElement('div');
       translatedDiv.className = 'translated';
       translatedDiv.textContent = msg.translated_message || msg.message;
@@ -531,7 +372,7 @@
         const originalDiv = document.createElement('div');
         originalDiv.className = 'original';
         originalDiv.textContent = msg.original || msg.original_message || msg.message;
-        contentDiv.appendChild(originalDiv);
+        messageTextDiv.appendChild(originalDiv);
       } else {
         console.log('Not showing original message - conditions not met');
       }
@@ -541,7 +382,8 @@
       ttsButton.textContent = '🔊';
       ttsButton.onclick = () => playAudio(parseInt(li.dataset.index));
       
-      contentDiv.appendChild(translatedDiv);
+      messageTextDiv.appendChild(translatedDiv);
+      contentDiv.appendChild(messageTextDiv);
       contentDiv.appendChild(ttsButton);
       
       li.appendChild(messageHeader);
