@@ -9,6 +9,27 @@ import auth_pb2_grpc
 from auth_pb2 import *
 from auth_pb2_grpc import AuthServiceServicer
 
+import shutil
+
+def backup_sqlite_db():
+    original_db = 'users.db'
+    backup_db = 'users_backup.db'
+    try:
+        shutil.copyfile(original_db, backup_db)
+        print("✅ Database successfully backed up to 'users_backup.db'")
+    except Exception as e:
+        print(f"❌ Failed to back up database: {e}")
+
+def safe_connect(db_path='users.db'):
+    if not os.path.exists(db_path):
+        print("⚠️ users.db is missing at runtime. Attempting to restore from backup...")
+        if os.path.exists('users_backup.db'):
+            shutil.copyfile('users_backup.db', db_path)
+            print("✅ Runtime restoration successful.")
+        else:
+            print("❌ No backup found. Starting with empty DB.")
+    return sqlite3.connect(db_path)
+
 # JWT Configuration
 JWT_SECRET = os.getenv('JWT_SECRET', 'your-secret-key')
 JWT_ALGORITHM = 'HS256'
@@ -17,10 +38,16 @@ JWT_EXPIRATION = 24 * 60 * 60  # 24 hours
 class AuthService(AuthServiceServicer):
     def __init__(self):
         self.db_path = 'users.db'
+        if not os.path.exists(self.db_path):
+            print("⚠️ Primary database not found. Trying to use backup.")
+            if os.path.exists('users_backup.db'):
+                shutil.copyfile('users_backup.db', self.db_path)
+                print("✅ Restored from backup.")
+            else:
+                print("❌ Backup also not found. Starting fresh.")
         self.init_db()
-
     def init_db(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = safe_connect(self.db_path)
         c = conn.cursor()
 
         # Create the users table if it doesn't exist
@@ -104,7 +131,7 @@ class AuthService(AuthServiceServicer):
         print(f"📤 Register: Has avatar data: {has_avatar_data}")
         print(f"📤 Register: Has avatar URL: {bool(request.avatar_url)}")
 
-        conn = sqlite3.connect(self.db_path)
+        conn = conn = safe_connect(self.db_path)
         c = conn.cursor()
         
         try:
@@ -158,6 +185,9 @@ class AuthService(AuthServiceServicer):
                 print(f"📤 Register: Executed INSERT statement")
                 conn.commit()
                 print(f"📤 Register: Committed changes to database")
+
+                backup_sqlite_db()  # Backup the database after registering the user
+                print("📦 Database backup completed after user registration.")
             except Exception as e:
                 print(f"❌ Register: Error inserting user: {str(e)}")
                 raise e  # Re-raise to be caught by outer exception handler
@@ -207,7 +237,7 @@ class AuthService(AuthServiceServicer):
     def Login(self, request, context):
         print(f"🔑 Login: Attempt for user {request.username}")
 
-        conn = sqlite3.connect(self.db_path)
+        conn = conn = safe_connect(self.db_path)
         c = conn.cursor()
         
         try:
@@ -257,6 +287,11 @@ class AuthService(AuthServiceServicer):
             ''', (datetime.datetime.utcnow(), request.username))
             conn.commit()
 
+            backup_sqlite_db()  # Backup the database after user login
+            print("📦 Database backup completed after user login.")
+
+
+
             return AuthResponse(
                 success=True,
                 token=token,
@@ -288,8 +323,9 @@ class AuthService(AuthServiceServicer):
                 message="Invalid or expired token"
             )
 
-        conn = sqlite3.connect(self.db_path)
+        conn = conn = safe_connect(self.db_path)
         c = conn.cursor()
+
         
         try:
             c.execute('''
@@ -335,7 +371,7 @@ class AuthService(AuthServiceServicer):
                 message="Invalid or expired token"
             )
 
-        conn = sqlite3.connect(self.db_path)
+        conn = safe_connect(self.db_path)
         c = conn.cursor()
         
         try:
@@ -356,8 +392,13 @@ class AuthService(AuthServiceServicer):
                 request.username
             ))
             conn.commit()
-
+            
+           
+            backup_sqlite_db()  # ✅ backup added here
+            print("📦 Database backup completed after profile update.")
             return self.GetProfile(request, context)
+        
+
 
         except Exception as e:
             return ProfileResponse(
@@ -375,7 +416,7 @@ class AuthService(AuthServiceServicer):
                 message="Invalid or expired token"
             )
 
-        conn = sqlite3.connect(self.db_path)
+        conn = safe_connect(self.db_path)
         c = conn.cursor()
         
         try:
@@ -423,7 +464,7 @@ class AuthService(AuthServiceServicer):
                 message="Invalid or expired token"
             )
 
-        conn = sqlite3.connect(self.db_path)
+        conn = safe_connect(self.db_path)
         c = conn.cursor()
         
         try:
@@ -468,7 +509,7 @@ class AuthService(AuthServiceServicer):
         print(f"📤 UploadAvatar: Image data size: {len(request.image_data)} bytes")
         print(f"📤 UploadAvatar: First 20 bytes: {request.image_data[:20]}")
 
-        conn = sqlite3.connect(self.db_path)
+        conn = safe_connect(self.db_path)
         c = conn.cursor()
 
         try:
@@ -523,7 +564,7 @@ class AuthService(AuthServiceServicer):
 
         print(f"📥 GetAvatar: Attempting to get avatar for user {request.username}")
 
-        conn = sqlite3.connect(self.db_path)
+        conn = safe_connect(self.db_path)
         c = conn.cursor()
 
         try:
@@ -593,7 +634,7 @@ class AuthService(AuthServiceServicer):
                 message="Invalid or expired token"
             )
 
-        conn = sqlite3.connect(self.db_path)
+        conn = safe_connect(self.db_path)
         c = conn.cursor()
         
         try:
