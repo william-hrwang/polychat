@@ -10,6 +10,7 @@ service AuthService {
   rpc ChangePassword (ChangePasswordRequest) returns (AuthResponse);
   rpc Logout (LogoutRequest) returns (AuthResponse);
   rpc VerifyToken (VerifyTokenRequest) returns (VerifyTokenResponse);
+  rpc GetAllUsers (GetAllUsersRequest) returns (GetAllUsersResponse); //Deckard Add, Status Check
   rpc UploadAvatar (UploadAvatarRequest) returns (UploadAvatarResponse);
   rpc GetAvatar (GetAvatarRequest) returns (GetAvatarResponse);
 }
@@ -88,6 +89,18 @@ message VerifyTokenResponse {
   string message = 3;
 }
 
+//Deckard Add, Status Check
+message GetAllUsersRequest {
+  string token = 1;
+}
+
+//Deckard Add, Status Check
+message GetAllUsersResponse {
+  bool success = 1;
+  string message = 2;
+  repeated UserProfile users = 3;
+}
+
 message UploadAvatarRequest {
   string username = 1;
   string token = 2;
@@ -109,4 +122,4 @@ message GetAvatarResponse {
   string message = 2;
   bytes image_data = 3;
   string image_url = 4;
-} 
+}

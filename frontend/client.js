@@ -64,6 +64,11 @@ app.use(bodyParser.json());
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Deckard Add, Status Check
+// Store user status information
+let userPresenceData = [];
+const PRESENCE_UPDATE_INTERVAL = 10000; // 10 seconds
+
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -95,7 +100,7 @@ app.post('/api/register', (req, res) => {
     console.log('Avatar data is array:', Array.isArray(req.body.avatar_data));
     console.log('Avatar data length:', req.body.avatar_data.length);
   }
-  
+
   authClient.Register(req.body, (err, response) => {
     if (err) {
       console.error('gRPC Register error:', err);
@@ -150,6 +155,17 @@ app.post('/api/logout', authenticateToken, (req, res) => {
   });
 });
 
+// Deckard Add, Status Check
+// Add new API route to get all users
+app.get('/api/users', authenticateToken, (req, res) => {
+  authClient.GetAllUsers({ token: req.headers['authorization'].split(' ')[1] }, (err, response) => {
+    if (err) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+    res.json(response);
+  });
+});
+
 // Avatar upload endpoint
 app.post('/api/upload-avatar', (req, res, next) => {
   console.log('Received request to /api/upload-avatar');
@@ -157,13 +173,13 @@ app.post('/api/upload-avatar', (req, res, next) => {
   next();
 }, authenticateToken, upload.single('image'), (req, res) => {
   console.log('Avatar upload request received from authenticated user:', req.user);
-  
+
   if (!req.file) {
     console.error('No file found in the request. Form fields:', req.body);
     return res.status(400).json({ success: false, message: 'No image file provided' });
   }
-  
-  console.log('File received successfully:', { 
+
+  console.log('File received successfully:', {
     originalname: req.file.originalname,
     mimetype: req.file.mimetype,
     size: req.file.buffer.length,
@@ -190,10 +206,10 @@ app.post('/api/upload-avatar', (req, res, next) => {
 // Avatar retrieval endpoint
 app.get('/api/avatar/:username', (req, res) => {
   console.log('Avatar request received for username:', req.params.username);
-  
+
   // Get token from query parameters or authorization header
   const token = req.query.token || (req.headers['authorization'] ? req.headers['authorization'].split(' ')[1] : null);
-  
+
   if (!token) {
     console.log('No token provided for avatar request');
     return res.status(401).json({ success: false, message: 'No token provided' });
@@ -240,7 +256,7 @@ app.get('/api/avatar/:username', (req, res) => {
 const server = http.createServer(app);
 
 // WebSocket server
-const wss = new WebSocket.Server({ 
+const wss = new WebSocket.Server({
   server,
   path: '/',
   clientTracking: true,
@@ -275,6 +291,60 @@ process.on('uncaughtException', (error) => {
 let chatHistory = [];
 let messageIndex = 0; // Add message index tracking
 
+// Deckard Add, Status Check
+// Function to update and broadcast user presence
+function updateAndBroadcastPresence() {
+  // Use server admin token or generate a special token for this purpose
+  // For prototype, we'll use the first connected client's token
+  if (clients.size === 0) {
+    console.log('No clients connected, skipping presence update');
+    return;
+  }
+
+  const someClient = Array.from(clients.values())[0];
+  if (!someClient || !someClient.token) {
+    console.error('No valid client token available for presence update');
+    return;
+  }
+
+  const someToken = someClient.token;
+
+  authClient.GetAllUsers({ token: someToken }, (err, response) => {
+    if (err) {
+      console.error('Failed to fetch user presence:', err);
+      return;
+    }
+
+    //Deckard Add, Status Check
+    if (!response || !response.success) {
+      console.error('Failed to fetch user presence:', response ? response.message : 'No response');
+      return;
+    }
+
+    // Ensure users is always an array, even if empty
+    userPresenceData = Array.isArray(response.users) ? response.users : [];
+
+    // Broadcast presence update to all clients
+    const presencePayload = JSON.stringify({
+      type: 'presence',
+      users: userPresenceData
+    });
+
+    let sentCount = 0;
+    clients.forEach((client) => {
+      if (client.ws && client.ws.readyState === WebSocket.OPEN) {
+        client.ws.send(presencePayload);
+        sentCount++;
+      }
+    });
+
+    console.log(`Broadcasted presence data for ${userPresenceData.length} users to ${sentCount} clients`);
+  });
+}
+
+// Start presence update interval
+const presenceInterval = setInterval(updateAndBroadcastPresence, PRESENCE_UPDATE_INTERVAL);
+
 wss.on('connection', (ws, req) => {
   const token = new URL(req.url, 'http://localhost').searchParams.get('token');
   
@@ -297,12 +367,21 @@ wss.on('connection', (ws, req) => {
     console.log(`🧠 New client connected: ${username}`);
     
     // Store client connection
-    clients.set(username, ws);
+    clients.set(username, { ws, token }); // Store token with WebSocket //Deckard Add, Status Check
 
     // Send chat history to new client
     if (chatHistory.length > 0) {
       console.log(`Sending ${chatHistory.length} messages of history to ${username}`);
       ws.send(JSON.stringify({ type: 'history', messages: chatHistory }));
+    }
+
+    // Deckard Add, Status Check
+    // Send initial presence data to new client
+    if (userPresenceData.length > 0) {
+      ws.send(JSON.stringify({
+        type: 'presence',
+        users: userPresenceData
+      }));
     }
 
     // Update online status
@@ -362,7 +441,7 @@ stream.on('data', (msg) => {
   // Add message to chat history
   chatHistory.push(msg);
   messageIndex++; // Increment message index
-  
+
   // Keep only last 100 messages
   if (chatHistory.length > 100) {
     chatHistory = chatHistory.slice(-100);
@@ -371,8 +450,8 @@ stream.on('data', (msg) => {
   // Broadcast text message to all connected clients
   const textPayload = JSON.stringify({ type: 'message', ...msg });
   clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(textPayload);
+    if (client.ws.readyState === WebSocket.OPEN) {//Deckard Add, Status Check
+      client.ws.send(textPayload);//Deckard Add, Status Check
     }
   });
   
@@ -393,18 +472,25 @@ stream.on('data', (msg) => {
     // Convert the binary data to base64
     const audioData = Buffer.from(response.audioData).toString('base64');
     console.log("📦 TTS audio data length:", audioData.length);
-    const audioPayload = JSON.stringify({ 
-      type: 'audio', 
+    const audioPayload = JSON.stringify({
+      type: 'audio',
       audio: audioData,
       messageIndex: messageIndex - 1  // Use the current message index
     });
     console.log("📦 Sending audio payload to clients");
     clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(audioPayload);
+      if (client.ws.readyState === WebSocket.OPEN) {//Deckard Add, Status Check
+        client.ws.send(audioPayload);//Deckard Add, Status Check
       }
     });
   });
+});
+
+// Deckard Add, Status Check
+// Cleanup on server shutdown
+server.on('close', () => {
+  clearInterval(presenceInterval);
+  clients.clear();
 });
 
 // Start the server
