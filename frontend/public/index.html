@@ -11,33 +11,45 @@
 </head>
 <body>
   <div class="container">
-    <div class="chat-container">
-      <div class="header">
-        <div class="user-profile">
-          <img id="userAvatar" class="avatar" src="https://via.placeholder.com/40" alt="Avatar">
-          <div class="user-info">
-            <div class="username">
-              <span id="userFullName"></span>
-              <span class="account-name" id="accountName"></span>
-              <span id="userStatus" class="status-badge"></span>
+    <div class="main-content">
+      <div class="chat-container">
+        <div class="header">
+          <div class="user-profile">
+            <img id="userAvatar" class="avatar" src="https://via.placeholder.com/40" alt="Avatar">
+            <div class="user-info">
+              <div class="username">
+                <span id="userFullName"></span>
+                <span class="account-name" id="accountName"></span>
+                <span id="userStatus" class="status-badge"></span>
+              </div>
             </div>
           </div>
+          <button class="btn btn-danger" onclick="logout()">Logout</button>
         </div>
-        <button class="btn btn-danger" onclick="logout()">Logout</button>
+
+        <div id="error" class="error-message"></div>
+
+        <ul id="chatbox"></ul>
+
+        <div class="input-area">
+          <select id="language" class="select-language">
+            <option value="en">English</option>
+            <option value="fr">French</option>
+            <option value="zh-cn">Chinese</option>
+          </select>
+          <input id="message" class="message-input" placeholder="Type a message..." />
+          <button onclick="send()" class="btn btn-primary">Send</button>
+        </div>
       </div>
-
-      <div id="error" class="error-message"></div>
-
-      <ul id="chatbox"></ul>
-
-      <div class="input-area">
-        <select id="language" class="select-language">
-          <option value="en">English</option>
-          <option value="fr">French</option>
-          <option value="zh-cn">Chinese</option>
-        </select>
-        <input id="message" class="message-input" placeholder="Type a message..." />
-        <button onclick="send()" class="btn btn-primary">Send</button>
+      
+      <div class="users-container">
+        <h3 class="users-title">Users in Chat</h3>
+        <ul id="usersList" class="users-list">
+          <!-- User items will be added here dynamically -->
+          <li class="user-item loading">
+            <span class="user-item-name">Loading users...</span>
+          </li>
+        </ul>
       </div>
     </div>
   </div>
@@ -137,6 +149,11 @@
               document.getElementById('error').textContent = "Error processing audio";
             }
             break;
+            
+          case 'presence':
+            console.log('Received presence update with', data.users ? data.users.length : 0, 'users');
+            updateUsersList(data.users || []);
+            break;
         }
       };
 
@@ -153,6 +170,87 @@
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
       };
+    }
+
+    // Function to update the users list
+    function updateUsersList(users) {
+      const usersList = document.getElementById('usersList');
+      if (!usersList) {
+        console.error('Users list element not found');
+        return;
+      }
+      
+      usersList.innerHTML = '';
+      
+      // Sort by online status first, then by username
+      users.sort((a, b) => {
+        if (a.is_online === b.is_online) {
+          return a.username.localeCompare(b.username);
+        }
+        return b.is_online - a.is_online;
+      });
+      
+      if (users.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'user-item';
+        li.innerHTML = '<div class="user-item-details"><span class="user-item-name">No users online</span></div>';
+        usersList.appendChild(li);
+        return;
+      }
+      
+      users.forEach(user => {
+        const li = document.createElement('li');
+        li.className = 'user-item';
+        
+        const statusClass = user.is_online ? 'user-online' : 'user-offline';
+        const statusText = user.is_online ? 'Online' : 'Offline';
+        const lastSeen = user.is_online ? 'Now' : formatLastSeen(user.last_seen);
+        
+        li.innerHTML = `
+          <img class="user-item-avatar" src="/api/avatar/${user.username}?token=${token}" alt="${user.username}">
+          <div class="user-item-details">
+            <span class="user-item-name">${user.full_name || user.username}</span>
+            <span class="user-item-status">
+              <span class="user-status-indicator ${statusClass}"></span>
+              ${statusText} ${!user.is_online ? '• ' + lastSeen : ''}
+            </span>
+          </div>
+        `;
+        
+        usersList.appendChild(li);
+      });
+    }
+    
+    // Format last seen time
+    function formatLastSeen(timestamp) {
+      if (!timestamp) return 'Unknown';
+      
+      try {
+        const lastSeenDate = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now - lastSeenDate;
+        
+        // Less than a minute
+        if (diffMs < 60000) {
+          return 'Just now';
+        }
+        // Less than an hour
+        if (diffMs < 3600000) {
+          const minutes = Math.floor(diffMs / 60000);
+          return `${minutes}m ago`;
+        }
+        // Less than a day
+        if (diffMs < 86400000) {
+          const hours = Math.floor(diffMs / 3600000);
+          return `${hours}h ago`;
+        }
+        // More than a day
+        const days = Math.floor(diffMs / 86400000);
+        return `${days}d ago`;
+      } catch (e) {
+        console.error('Error formatting date:', e);
+        return 'Unknown';
+      }
     }
 
     function loadUserProfile() {
