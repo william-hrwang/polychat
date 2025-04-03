@@ -1,0 +1,125 @@
+syntax = "proto3";
+
+package auth;
+
+service AuthService {
+  rpc Register (RegisterRequest) returns (AuthResponse);
+  rpc Login (LoginRequest) returns (AuthResponse);
+  rpc GetProfile (ProfileRequest) returns (ProfileResponse);
+  rpc UpdateProfile (UpdateProfileRequest) returns (ProfileResponse);
+  rpc ChangePassword (ChangePasswordRequest) returns (AuthResponse);
+  rpc Logout (LogoutRequest) returns (AuthResponse);
+  rpc VerifyToken (VerifyTokenRequest) returns (VerifyTokenResponse);
+  rpc GetAllUsers (GetAllUsersRequest) returns (GetAllUsersResponse); //Deckard Add, Status Check
+  rpc UploadAvatar (UploadAvatarRequest) returns (UploadAvatarResponse);
+  rpc GetAvatar (GetAvatarRequest) returns (GetAvatarResponse);
+}
+
+message RegisterRequest {
+  string username = 1;
+  string email = 2;
+  string password = 3;
+  string full_name = 4;
+  string avatar_url = 5;
+  bytes avatar_data = 6;
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message AuthResponse {
+  bool success = 1;
+  string token = 2;
+  string message = 3;
+  UserProfile profile = 4;
+}
+
+message ProfileRequest {
+  string username = 1;
+  string token = 2;
+}
+
+message UpdateProfileRequest {
+  string username = 1;
+  string token = 2;
+  string full_name = 3;
+  string avatar_url = 4;
+  string status = 5;
+  bool is_online = 6;
+  string last_seen = 7;
+}
+
+message ChangePasswordRequest {
+  string username = 1;
+  string token = 2;
+  string old_password = 3;
+  string new_password = 4;
+}
+
+message LogoutRequest {
+  string username = 1;
+  string token = 2;
+}
+
+message ProfileResponse {
+  bool success = 1;
+  string message = 2;
+  UserProfile profile = 3;
+}
+
+message UserProfile {
+  string username = 1;
+  string email = 2;
+  string full_name = 3;
+  string avatar_url = 4;
+  string status = 5;
+  bool is_online = 6;
+  string last_seen = 7;
+}
+
+message VerifyTokenRequest {
+  string token = 1;
+}
+
+message VerifyTokenResponse {
+  bool success = 1;
+  string username = 2;
+  string message = 3;
+}
+
+//Deckard Add, Status Check
+message GetAllUsersRequest {
+  string token = 1;
+}
+
+//Deckard Add, Status Check
+message GetAllUsersResponse {
+  bool success = 1;
+  string message = 2;
+  repeated UserProfile users = 3;
+}
+
+message UploadAvatarRequest {
+  string username = 1;
+  string token = 2;
+  bytes image_data = 3;
+}
+
+message UploadAvatarResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetAvatarRequest {
+  string username = 1;
+  string token = 2;
+}
+
+message GetAvatarResponse {
+  bool success = 1;
+  string message = 2;
+  bytes image_data = 3;
+  string image_url = 4;
+}
