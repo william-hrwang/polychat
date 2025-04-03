@@ -300,45 +300,46 @@ function updateAndBroadcastPresence() {
     console.log('No clients connected, skipping presence update');
     return;
   }
-
+  
   const someClient = Array.from(clients.values())[0];
   if (!someClient || !someClient.token) {
     console.error('No valid client token available for presence update');
     return;
   }
-
+  
   const someToken = someClient.token;
-
+  
   authClient.GetAllUsers({ token: someToken }, (err, response) => {
     if (err) {
       console.error('Failed to fetch user presence:', err);
       return;
     }
-
+    
     //Deckard Add, Status Check
     if (!response || !response.success) {
       console.error('Failed to fetch user presence:', response ? response.message : 'No response');
       return;
     }
-
+    
     // Ensure users is always an array, even if empty
     userPresenceData = Array.isArray(response.users) ? response.users : [];
-
+    
     // Broadcast presence update to all clients
-    const presencePayload = JSON.stringify({
-      type: 'presence',
-      users: userPresenceData
+    const presencePayload = JSON.stringify({ 
+      type: 'presence', 
+      users: userPresenceData 
     });
-
-    let sentCount = 0;
-    clients.forEach((client) => {
+    
+    // Track which users received the presence data
+    const receivingUsers = [];
+    clients.forEach((client, username) => {
       if (client.ws && client.ws.readyState === WebSocket.OPEN) {
         client.ws.send(presencePayload);
-        sentCount++;
+        receivingUsers.push(username);
       }
     });
-
-    console.log(`Broadcasted presence data for ${userPresenceData.length} users to ${sentCount} clients`);
+    
+    console.log(`Broadcasted presence data for ${userPresenceData.length} users to clients: ${receivingUsers.join(', ') || 'none'}`);
   });
 }
 
@@ -441,7 +442,7 @@ stream.on('data', (msg) => {
   // Add message to chat history
   chatHistory.push(msg);
   messageIndex++; // Increment message index
-
+  
   // Keep only last 100 messages
   if (chatHistory.length > 100) {
     chatHistory = chatHistory.slice(-100);
@@ -449,11 +450,15 @@ stream.on('data', (msg) => {
   
   // Broadcast text message to all connected clients
   const textPayload = JSON.stringify({ type: 'message', ...msg });
-  clients.forEach((client) => {
-    if (client.ws.readyState === WebSocket.OPEN) {//Deckard Add, Status Check
-      client.ws.send(textPayload);//Deckard Add, Status Check
+  const messageRecipients = [];
+  clients.forEach((client, username) => {
+    if (client.ws && client.ws.readyState === WebSocket.OPEN) {
+      client.ws.send(textPayload);
+      messageRecipients.push(username);
     }
   });
+  
+  console.log(`📤 Message broadcast to clients: ${messageRecipients.join(', ') || 'none'}`);
   
   // Call TTS
   ttsClient.TextToSpeech({ text: msg.message }, (err, response) => {
@@ -477,12 +482,16 @@ stream.on('data', (msg) => {
       audio: audioData,
       messageIndex: messageIndex - 1  // Use the current message index
     });
-    console.log("📦 Sending audio payload to clients");
-    clients.forEach((client) => {
-      if (client.ws.readyState === WebSocket.OPEN) {//Deckard Add, Status Check
-        client.ws.send(audioPayload);//Deckard Add, Status Check
+    
+    const audioRecipients = [];
+    clients.forEach((client, username) => {
+      if (client.ws && client.ws.readyState === WebSocket.OPEN) {
+        client.ws.send(audioPayload);
+        audioRecipients.push(username);
       }
     });
+    
+    console.log(`🔊 Audio broadcast to clients: ${audioRecipients.join(', ') || 'none'}`);
   });
 });
 
