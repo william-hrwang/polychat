@@ -15,7 +15,7 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         translation = self.translator.TranslateText(
             translate_pb2.TranslateRequest(
                 text=request.message,
-                target_lang='en'  # 后续可以动态改
+                target_lang='en'
             )
         )
 
@@ -25,7 +25,7 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             client.write(chat_pb2.ChatMessage(
                 username=request.username,
                 message=translated_text,
-                original=request.message,  # 👈 新增原文字段
+                original=request.message,
                 language=request.language
             ))
         return chat_pb2.ChatAck(success=True)
@@ -48,7 +48,7 @@ def serve():
     chat_pb2_grpc.add_ChatServiceServicer_to_server(ChatService(), server)
     server.add_insecure_port('[::]:50052')
     server.start()
-    print("✅ ChatService started on [::]:50052")
+    print("ChatService started on [::]:50052")
     server.wait_for_termination()
 
 if __name__ == '__main__':

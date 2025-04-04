@@ -4,28 +4,28 @@ PolyChat is a real-time multilingual chat application that enables seamless comm
 
 ## Features
 
-- 🌐 **Real-time Multilingual Chat**
+- **Real-time Multilingual Chat**
   - Automatic translation between multiple languages
   - Support for English, French, and Chinese
   - Real-time message delivery
   - Message history preservation
   - Original and translated text display
 
-- 🔊 **Text-to-Speech (TTS)**
+- **Text-to-Speech (TTS)**
   - Convert messages to speech
   - Play messages in their original language
   - Support for multiple languages
   - Volume control button positioned for easy access
   - Audio processing status indicators
 
-- 👤 **User Authentication & Profiles**
+- **User Authentication & Profiles**
   - Secure user registration and login
   - User profiles with avatars
   - Online/offline status tracking
   - Last seen timestamps
   - Profile customization options
 
-- 💬 **Chat Features**
+- **Chat Features**
   - Public chatroom
   - Message history
   - Real-time message updates
@@ -34,7 +34,7 @@ PolyChat is a real-time multilingual chat application that enables seamless comm
   - Responsive design for all devices
   - Modern UI with smooth animations
 
-- 💬 **RAFT**
+- **RAFT**
   - Leader Election: The system uses the Raft consensus protocol to elect a leader among a cluster of nodes. Only the leader is authorized to process and append new messages, ensuring there’s a single source of truth for the log.
     
   - Replicated Log: When the leader receives a new message, it serializes the message (using JSON) and appends it to a replicated log. This log is stored across all nodes using the Raftos library, which handles the replication process.     The replicated log guarantees that every node in the cluster eventually has an identical copy of the messages, even if some nodes temporarily go offline.
@@ -46,7 +46,17 @@ PolyChat is a real-time multilingual chat application that enables seamless comm
     remains synchronized across multiple instances of the application.
  
 
-   **Backup System -Automatic Database Backup -After every critical operation (e.g., registration, login, profile update, avatar upload), the system creates a fresh backup of users.db as users_backup.db. -Self-Healing on Startup -On initialization, the service checks if users.db is missing or corrupted. -If it is, the service automatically restores it from the latest users_backup.db. -Resilience Against Data Loss -Ensures high availability of authentication services by maintaining a real-time synced backup.- -Developer-Friendly Logging -Clear and consistent console logs at each stage (registration, backup, restoration, etc.) to aid in debugging and monitoring. -Ready for Runtime Fallback (Extendable) -The system is structured so runtime backup restoration logic can be added in future, allowing recovery even if the database is lost during operation.
+- **Backup System**
+  - Automatic Database Backup: After every critical operation (e.g., registration, login, profile update, avatar upload), the system creates a fresh backup of users.db as users_backup.db. 
+  
+  - Self-Healing on Startup: On initialization, the service checks if users.db is missing or corrupted. 
+    - If it is, the service automatically restores it from the latest users_backup.db. 
+    - Resilience Against Data Loss 
+    - Ensures high availability of authentication services by maintaining a real-time synced backup.
+  - Developer-Friendly Logging 
+  - Clear and consistent console logs at each stage (registration, backup, restoration, etc.) to aid in debugging and monitoring. 
+  - Ready for Runtime Fallback (Extendable) 
+  - The system is structured so runtime backup restoration logic can be added in future, allowing recovery even if the database is lost during operation.
 
 ## Architecture
 
@@ -61,10 +71,11 @@ The application is built using a microservices architecture:
   - Chat Service (gRPC): Handles message routing and translation
   - TTS Service (gRPC): Converts text to speech
   - Auth Service (gRPC): Manages user authentication and profiles
+  - Translate Service (gRPC): Use Google Translate API to translate message
 
 ## Prerequisites
 
-- Python 3.7+
+- Python 3.9
 - Node.js 14+
 - gRPC tools
 - FFmpeg (for audio processing)
@@ -106,13 +117,13 @@ python3 -m grpc_tools.protoc -I auth --python_out=auth --grpc_python_out=auth au
 # Start RAFT node 1 2 3
 cd backend/gateway
 
-#Node 1 (Leader)
+# Node 1 (Leader)
 python3 server.py 1 2 3
 
-#Node 2 (Follower)
+# Node 2 (Follower)
 python3 server.py 2 1 3
 
-#Node 3 (Follower)
+# Node 3 (Follower)
 python3 server.py 3 1 2
 
 # Start TTS Service
@@ -125,6 +136,10 @@ python3 server.py
 
 # Start Translate Service
 cd backend/translation
+python3 server.py
+
+# Start Chat Service
+cd backend/gateway
 python3 server.py
 ```
 
@@ -146,9 +161,8 @@ http://localhost:8080
 3. Type your message and press Enter or click Send
 4. Messages will be automatically translated to the recipient's language
 5. Use the 🔊 button (positioned on the right of each message) to play the audio version
-6. View other users' online status and last seen times
-7. Update your profile information and avatar
-8. Messages will show both original and translated text when applicable
+6. View other users' online status
+7. Messages will show both original and translated text when applicable
 
 ## API Endpoints
 
@@ -166,15 +180,7 @@ http://localhost:8080
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+The project is contributed by UWO CS9644 Group 6
 
 ## Acknowledgments
 

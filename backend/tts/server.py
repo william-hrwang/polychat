@@ -48,7 +48,7 @@ def serve():
     tts_pb2_grpc.add_TTSServiceServicer_to_server(TTSService(), server)
     server.add_insecure_port('[::]:50054')
     server.start()
-    logger.info("🔊 TTSService running at [::]:50054")
+    logger.info("TTSService running at [::]:50054")
     server.wait_for_termination()
 
 if __name__ == '__main__':

@@ -7,6 +7,8 @@ const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
 const multer = require('multer');
+
+
 // Configure multer to store files in memory and log details
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -36,7 +38,7 @@ const authPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/auth.prot
   defaults: true,
   oneofs: true,
   includeDirs: [path.join(__dirname, 'grpc')],
-  bytes: Buffer  // 👈 THIS IS THE FIX
+  bytes: Buffer 
 });
 
 const authProto = grpc.loadPackageDefinition(authPackageDef).auth;
@@ -63,8 +65,6 @@ app.use(bodyParser.json());
 
 // Add multer middleware for handling form data
 app.use(express.urlencoded({ extended: true }));
-
-// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Deckard Add, Status Check
@@ -249,7 +249,7 @@ app.post('/api/upload-avatar', (req, res, next) => {
   });
 });
 
-// Avatar retrieval endpoint
+// Avatar retrieval
 app.get('/api/avatar/:username', (req, res) => {
   console.log('Avatar request received for username:', req.params.username);
   
@@ -279,12 +279,12 @@ app.get('/api/avatar/:username', (req, res) => {
 
     if (response.image_data) {
       console.log('Sending binary image data');
-      // If we have binary image data, send it directly
+      // If have binary image data, send it directly
       res.set('Content-Type', response.image_mimetype || 'image/jpeg');
       res.send(response.image_data);
     } else if (response.image_url) {
       console.log('Redirecting to image URL:', response.image_url);
-      // If we have a URL, redirect to it
+      // If have a URL, redirect to it
       res.redirect(response.image_url);
     } else {
       console.log('No avatar data found, sending default avatar');
@@ -298,10 +298,7 @@ app.get('/api/avatar/:username', (req, res) => {
   });
 });
 
-// Create HTTP server
 const server = http.createServer(app);
-
-// WebSocket server
 const wss = new WebSocket.Server({
   server,
   path: '/',
@@ -411,7 +408,7 @@ wss.on('connection', (ws, req) => {
     }
 
     const username = response.username;
-    console.log(`🧠 New client connected: ${username}`);
+    console.log(`New client connected: ${username}`);
     
     // Store client connection
     clients.set(username, { ws, token }); // Store token with WebSocket //Deckard Add, Status Check
@@ -461,7 +458,7 @@ wss.on('connection', (ws, req) => {
     });
 
     ws.on('close', () => {
-      console.log(`👋 Client disconnected: ${username}`);
+      console.log(`Client disconnected: ${username}`);
       clients.delete(username);
       
       // Update offline status
@@ -483,7 +480,7 @@ wss.on('connection', (ws, req) => {
 const stream = chatClient.StreamMessages({ username: 'server' });
 
 stream.on('data', (msg) => {
-  console.log("📥 Received from gRPC stream:", msg);
+  console.log("Received from gRPC stream:", msg);
   
   // Add message to chat history
   chatHistory.push(msg);
@@ -504,7 +501,7 @@ stream.on('data', (msg) => {
     }
   });
   
-  console.log(`📤 Message broadcast to clients: ${messageRecipients.join(', ') || 'none'}`);
+  console.log(`Message broadcast to clients: ${messageRecipients.join(', ') || 'none'}`);
   
   // Call TTS
   ttsClient.TextToSpeech({ text: msg.message }, (err, response) => {
@@ -513,16 +510,16 @@ stream.on('data', (msg) => {
       return;
     }
     
-    console.log("📦 TTS raw response:", response);
+    console.log("TTS raw response:", response);
     
     if (!response || !response.audioData) {
-      console.warn("⚠️ No audio data received from TTS service.");
+      console.warn("No audio data received from TTS service.");
       return;
     }
     
     // Convert the binary data to base64
     const audioData = Buffer.from(response.audioData).toString('base64');
-    console.log("📦 TTS audio data length:", audioData.length);
+    console.log("TTS audio data length:", audioData.length);
     const audioPayload = JSON.stringify({
       type: 'audio',
       audio: audioData,
@@ -537,7 +534,7 @@ stream.on('data', (msg) => {
       }
     });
     
-    console.log(`🔊 Audio broadcast to clients: ${audioRecipients.join(', ') || 'none'}`);
+    console.log(`Audio broadcast to clients: ${audioRecipients.join(', ') || 'none'}`);
   });
 });
 
@@ -551,11 +548,12 @@ server.on('close', () => {
 // Start the server
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
-  console.log(`📡 WebSocket server ready for connections`);
+  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`WebSocket server ready for connections`);
 });
 
 
+// Test Message
 // grpcClient.SendMessage({
 //     username: 'test_user',
 //     message: 'Hello World!',
