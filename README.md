@@ -33,7 +33,19 @@ PolyChat is a real-time multilingual chat application that enables seamless comm
   - User avatars
   - Responsive design for all devices
   - Modern UI with smooth animations
+
+- 💬 **RAFT**
+  - Leader Election: The system uses the Raft consensus protocol to elect a leader among a cluster of nodes. Only the leader is authorized to process and append new messages, ensuring there’s a single source of truth for the log.
     
+  - Replicated Log: When the leader receives a new message, it serializes the message (using JSON) and appends it to a replicated log. This log is stored across all nodes using the Raftos library, which handles the replication process.     The replicated log guarantees that every node in the cluster eventually has an identical copy of the messages, even if some nodes temporarily go offline.
+    
+  - Fault Tolerance: If the current leader fails or becomes unreachable, the Raft protocol automatically elects a new leader. This ensures that the system remains available and that the message log stays consistent despite node       
+    failures.
+    
+  - Message Propagation: Once a message is appended to the log by the leader, it is streamed to connected clients (via WebSockets) so that every user sees the updated chat history. This replication mechanism ensures that the chat   
+    remains synchronized across multiple instances of the application.
+ 
+
    **Backup System -Automatic Database Backup -After every critical operation (e.g., registration, login, profile update, avatar upload), the system creates a fresh backup of users.db as users_backup.db. -Self-Healing on Startup -On initialization, the service checks if users.db is missing or corrupted. -If it is, the service automatically restores it from the latest users_backup.db. -Resilience Against Data Loss -Ensures high availability of authentication services by maintaining a real-time synced backup.- -Developer-Friendly Logging -Clear and consistent console logs at each stage (registration, backup, restoration, etc.) to aid in debugging and monitoring. -Ready for Runtime Fallback (Extendable) -The system is structured so runtime backup restoration logic can be added in future, allowing recovery even if the database is lost during operation.
 
 ## Architecture
@@ -91,9 +103,17 @@ python3 -m grpc_tools.protoc -I auth --python_out=auth --grpc_python_out=auth au
 
 1. Start the backend services:
 ```bash
-# Start Chat Service
-cd backend/chat
-python3 server.py
+# Start RAFT node 1 2 3
+cd backend/gateway
+
+#Node 1 (Leader)
+python3 server.py 1 2 3
+
+#Node 2 (Follower)
+python3 server.py 2 1 3
+
+#Node 3 (Follower)
+python3 server.py 3 1 2
 
 # Start TTS Service
 cd backend/tts
