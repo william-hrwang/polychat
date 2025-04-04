@@ -34,6 +34,11 @@ PolyChat is a real-time multilingual chat application that enables seamless comm
   - Responsive design for all devices
   - Modern UI with smooth animations
 
+   **Backup System
+   - when primary database failed, it will swtich to backup system
+   - when the primary database are not found, it will copy direct from the backup stored before
+   - backup system has syc up with the primary everytime a new record stored
+
 ## Architecture
 
 The application is built using a microservices architecture:
