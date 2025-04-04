@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PolyChat</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <div class="main-content">
+      <div class="chat-container">
+        <div class="header">
+          <div class="user-profile">
+            <img id="userAvatar" class="avatar" src="https://via.placeholder.com/40" alt="Avatar">
+            <div class="user-info">
+              <div class="username">
+                <span id="userFullName"></span>
+                <span class="account-name" id="accountName"></span>
+                <span id="userStatus" class="status-badge"></span>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-danger" onclick="logout()">Logout</button>
+        </div>
+
+        <div id="error" class="error-message"></div>
+
+        <ul id="chatbox"></ul>
+
+        <div class="input-area">
+          <select id="language" class="select-language">
+            <option value="en">English</option>
+            <option value="fr">French</option>
+            <option value="zh-cn">Chinese</option>
+          </select>
+          <input id="message" class="message-input" placeholder="Type a message..." />
+          <button onclick="send()" class="btn btn-primary">Send</button>
+        </div>
+      </div>
+      
+      <div class="users-container">
+        <h3 class="users-title">Users in Chat</h3>
+        <ul id="usersList" class="users-list">
+          <!-- User items will be added here dynamically -->
+          <li class="user-item loading">
+            <span class="user-item-name">Loading users...</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Check authentication
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = '/login.html';
+    }
+
+    // WebSocket connection
+    let ws;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 5;
+    let messageIndex = 0; // Track message indices
+    const ttsAudioMap = new Map();
+
+    function connectWebSocket() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '/login.html';
+        return;
+      }
+
+      console.log('Connecting to WebSocket server...');
+      ws = new WebSocket(`ws://${window.location.host}?token=${token}`);
+      
+      ws.onopen = () => {
+        console.log('Connected to chat server');
+        reconnectAttempts = 0;
+        loadUserProfile();
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log('📥 Received WebSocket message:', data.type);
+        
+        switch (data.type) {
+          case 'history':
+            console.log('Received chat history');
+            // Clear existing messages
+            chatbox.innerHTML = '';
+            // Reset message index for history
+            messageIndex = 0;
+            // Add all historical messages
+            data.messages.forEach(msg => {
+              const messageElement = createMessageElement(msg);
+              chatbox.appendChild(messageElement);
+            });
+            break;
+          
+          case 'message':
+            console.log('Received new message');
+            const messageElement = createMessageElement(data);
+            chatbox.appendChild(messageElement);
+            // Store the current message index for audio
+            const currentIndex = messageIndex - 1;
+            // Wait a short time for the audio to arrive
+            setTimeout(() => {
+              if (!ttsAudioMap.has(currentIndex)) {
+                console.log('No audio received for message index:', currentIndex);
+                document.getElementById('error').textContent = "Audio processing...";
+              }
+            }, 1000);
+            break;
+          
+          case 'audio':
+            console.log('Received audio data for message index:', data.messageIndex);
+            console.log('Audio data length:', data.audio.length);
+            try {
+              // Convert base64 to binary
+              const binaryString = atob(data.audio);
+              const bytes = new Uint8Array(binaryString.length);
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+              }
+              const audioBlob = new Blob([bytes], { type: 'audio/mpeg' });
+              const audioUrl = URL.createObjectURL(audioBlob);
+              console.log('Created audio URL:', audioUrl);
+              ttsAudioMap.set(data.messageIndex, audioUrl);
+              document.getElementById('error').textContent = "";
+              
+              // Find the message element and update its TTS button
+              const messageElements = document.querySelectorAll('.message');
+              messageElements.forEach(element => {
+                if (parseInt(element.dataset.index) === data.messageIndex) {
+                  const ttsButton = element.querySelector('.tts-button');
+                  if (ttsButton) {
+                    ttsButton.disabled = false;
+                    ttsButton.title = "Play audio";
+                  }
+                }
+              });
+            } catch (error) {
+              console.error('Error processing audio data:', error);
+              document.getElementById('error').textContent = "Error processing audio";
+            }
+            break;
+            
+          case 'presence':
+            console.log('Received presence update with', data.users ? data.users.length : 0, 'users');
+            updateUsersList(data.users || []);
+            break;
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('Disconnected from chat server');
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttempts++;
+          setTimeout(connectWebSocket, 1000 * reconnectAttempts);
+        } else {
+          alert('Connection lost. Please refresh the page.');
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+    }
+
+    // Function to update the users list
+    function updateUsersList(users) {
+      const usersList = document.getElementById('usersList');
+      if (!usersList) {
+        console.error('Users list element not found');
+        return;
+      }
+      
+      usersList.innerHTML = '';
+      
+      // Sort by online status first, then by username
+      users.sort((a, b) => {
+        if (a.is_online === b.is_online) {
+          return a.username.localeCompare(b.username);
+        }
+        return b.is_online - a.is_online;
+      });
+      
+      if (users.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'user-item';
+        li.innerHTML = '<div class="user-item-details"><span class="user-item-name">No users online</span></div>';
+        usersList.appendChild(li);
+        return;
+      }
+      
+      users.forEach(user => {
+        const li = document.createElement('li');
+        li.className = 'user-item';
+        
+        const statusClass = user.is_online ? 'user-online' : 'user-offline';
+        const statusText = user.is_online ? 'Online' : 'Offline';
+        const lastSeen = user.is_online ? 'Now' : formatLastSeen(user.last_seen);
+        
+        li.innerHTML = `
+          <img class="user-item-avatar" src="/api/avatar/${user.username}?token=${token}" alt="${user.username}">
+          <div class="user-item-details">
+            <span class="user-item-name">${user.full_name || user.username}</span>
+            <span class="user-item-status">
+              <span class="user-status-indicator ${statusClass}"></span>
+              ${statusText} ${!user.is_online ? '• ' + lastSeen : ''}
+            </span>
+          </div>
+        `;
+        
+        usersList.appendChild(li);
+      });
+    }
+    
+    // Format last seen time
+    function formatLastSeen(timestamp) {
+      if (!timestamp) return 'Unknown';
+      
+      try {
+        const lastSeenDate = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now - lastSeenDate;
+        
+        // Less than a minute
+        if (diffMs < 60000) {
+          return 'Just now';
+        }
+        // Less than an hour
+        if (diffMs < 3600000) {
+          const minutes = Math.floor(diffMs / 60000);
+          return `${minutes}m ago`;
+        }
+        // Less than a day
+        if (diffMs < 86400000) {
+          const hours = Math.floor(diffMs / 3600000);
+          return `${hours}h ago`;
+        }
+        // More than a day
+        const days = Math.floor(diffMs / 86400000);
+        return `${days}d ago`;
+      } catch (e) {
+        console.error('Error formatting date:', e);
+        return 'Unknown';
+      }
+    }
+
+    function loadUserProfile() {
+      const token = localStorage.getItem('token');
+      const username = localStorage.getItem('username');
+      
+      if (!token || !username) {
+        window.location.href = '/login.html';
+        return;
+      }
+
+      // Set the account name
+      document.getElementById('accountName').textContent = `(@${username})`;
+
+      // Fetch user profile
+      fetch('/api/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById('userFullName').textContent = data.profile.full_name;
+          const statusElement = document.getElementById('userStatus');
+          statusElement.textContent = `(${data.profile.is_online ? 'Online' : 'Offline'})`;
+          statusElement.className = `status-badge ${data.profile.is_online ? 'online' : 'offline'}`;
+          
+          // Update avatar
+          const avatarImg = document.getElementById('userAvatar');
+          if (data.profile.avatar_url) {
+            console.log('Using avatar URL:', data.profile.avatar_url);
+            avatarImg.src = data.profile.avatar_url;
+          } else {
+            console.log('Fetching avatar data for:', username);
+            // If no avatar URL, fetch the avatar data with authentication
+            avatarImg.src = `/api/avatar/${username}?token=${token}`;
+          }
+
+          // Add error handling for avatar loading
+          avatarImg.onerror = (error) => {
+            console.error('Error loading avatar:', error);
+            avatarImg.src = 'data:image/svg+xml,' + encodeURIComponent(`
+              <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="50" fill="#ddd"/>
+                <path d="M50 50m-30 0a30 30 0 1 0 60 0a30 30 0 1 0 -60 0" fill="#fff"/>
+              </svg>
+            `);
+          };
+        } else {
+          throw new Error(data.message);
+        }
+      })
+      .catch(error => {
+        console.error('Error loading profile:', error);
+        document.getElementById('error').textContent = 'Failed to load profile';
+      });
+    }
+
+    async function logout() {
+      try {
+        const response = await fetch('/api/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          localStorage.removeItem('token');
+          window.location.href = '/login.html';
+        } else {
+          throw new Error(data.message);
+        }
+      } catch (error) {
+        console.error('Logout failed:', error);
+        document.getElementById('error').textContent = 'Logout failed. Please try again.';
+      }
+    }
+
+    function send() {
+      const messageInput = document.getElementById('message');
+      const message = messageInput.value.trim();
+      if (!message) return;
+
+      const token = localStorage.getItem('token');
+      const username = localStorage.getItem('username');
+      const language = document.getElementById('language').value;
+
+      // Create message object with timestamp
+      const timestamp = new Date().toISOString();
+      console.log('Generated timestamp for new message:', timestamp);
+      
+      const messageData = {
+        username: username,
+        message: message,
+        original_message: message, // Store the original message
+        language: language,
+        timestamp: timestamp
+      };
+
+      console.log('Sending message with data:', messageData);
+      ws.send(JSON.stringify(messageData));
+      messageInput.value = '';
+    }
+
+    function createMessageElement(msg) {
+      console.log('Creating message element with data:', msg);
+      console.log('Raw timestamp:', msg.timestamp);
+      
+      // Add detailed logging for message content
+      console.log('Message content details:');
+      console.log('- Original message:', msg.original || msg.original_message);
+      console.log('- Translated message:', msg.translated_message || msg.message);
+      console.log('- Main message:', msg.message);
+      console.log('- Current language:', document.getElementById('language').value);
+      console.log('- Is translated different from original:', (msg.translated_message || msg.message) !== (msg.original || msg.original_message));
+      console.log('- Is not English:', document.getElementById('language').value !== 'en');
+      
+      const li = document.createElement('li');
+      li.className = 'message';
+      li.dataset.index = messageIndex;
+      
+      const messageHeader = document.createElement('div');
+      messageHeader.className = 'message-header';
+      
+      const avatarImg = document.createElement('img');
+      avatarImg.className = 'message-avatar';
+      const token = localStorage.getItem('token');
+      if (msg.avatar_url) {
+        console.log('Using message avatar URL:', msg.avatar_url);
+        avatarImg.src = msg.avatar_url;
+      } else {
+        console.log('Fetching message avatar for:', msg.username);
+        avatarImg.src = `/api/avatar/${msg.username}?token=${token}`;
+      }
+      avatarImg.alt = `${msg.username}'s avatar`;
+
+      avatarImg.onerror = (error) => {
+        console.error('Error loading message avatar:', error);
+        avatarImg.src = 'data:image/svg+xml,' + encodeURIComponent(`
+          <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="50" fill="#ddd"/>
+            <path d="M50 50m-30 0a30 30 0 1 0 60 0a30 30 0 1 0 -60 0" fill="#fff"/>
+          </svg>
+        `);
+      };
+      
+      const usernameSpan = document.createElement('span');
+      usernameSpan.className = 'message-username';
+      usernameSpan.textContent = msg.username;
+      
+      const timeSpan = document.createElement('span');
+      timeSpan.className = 'message-time';
+      
+      // Log the timestamp processing
+      console.log('Processing timestamp:', msg.timestamp);
+      const date = new Date(msg.timestamp);
+      console.log('Parsed date:', date);
+      console.log('Is valid date:', !isNaN(date.getTime()));
+      
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date detected, using current time');
+        timeSpan.textContent = new Date().toLocaleString('en-GB', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).replace(',', '');
+      } else {
+        const formattedDate = date.toLocaleString('en-GB', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).replace(',', '');
+        console.log('Formatted date:', formattedDate);
+        timeSpan.textContent = formattedDate;
+      }
+      
+      messageHeader.appendChild(avatarImg);
+      messageHeader.appendChild(usernameSpan);
+      messageHeader.appendChild(timeSpan);
+      
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'message-content';
+      
+      const messageTextDiv = document.createElement('div');
+      messageTextDiv.className = 'message-text';
+      
+      const translatedDiv = document.createElement('div');
+      translatedDiv.className = 'translated';
+      translatedDiv.textContent = msg.translated_message || msg.message;
+      
+      // Add logging before checking conditions
+      console.log('Checking conditions for showing original message:');
+      const hasTranslatedMessage = msg.translated_message || msg.message;
+      const isDifferentFromOriginal = (msg.translated_message || msg.message) !== (msg.original || msg.original_message);
+      const isNotEnglish = document.getElementById('language').value !== 'en';
+      
+      console.log('- Has translated message:', hasTranslatedMessage);
+      console.log('- Is different from original:', isDifferentFromOriginal);
+      console.log('- Is not English:', isNotEnglish);
+      
+      // Only show original message if it's different from the translated message
+      // and the message is not in English
+      if (hasTranslatedMessage && isDifferentFromOriginal && isNotEnglish) {
+        console.log('Showing original message');
+        const originalDiv = document.createElement('div');
+        originalDiv.className = 'original';
+        originalDiv.textContent = msg.original || msg.original_message || msg.message;
+        messageTextDiv.appendChild(originalDiv);
+      } else {
+        console.log('Not showing original message - conditions not met');
+      }
+      
+      const ttsButton = document.createElement('button');
+      ttsButton.className = 'tts-button';
+      ttsButton.textContent = '🔊';
+      ttsButton.onclick = () => playAudio(parseInt(li.dataset.index));
+      
+      messageTextDiv.appendChild(translatedDiv);
+      contentDiv.appendChild(messageTextDiv);
+      contentDiv.appendChild(ttsButton);
+      
+      li.appendChild(messageHeader);
+      li.appendChild(contentDiv);
+      
+      messageIndex++;
+      return li;
+    }
+
+    function base64ToBlob(base64, mime) {
+      const byteChars = atob(base64);
+      const byteArrays = [];
+      for (let i = 0; i < byteChars.length; i += 512) {
+        const slice = byteChars.slice(i, i + 512);
+        const byteNumbers = new Array(slice.length);
+        for (let j = 0; j < slice.length; j++) {
+          byteNumbers[j] = slice.charCodeAt(j);
+        }
+        byteArrays.push(new Uint8Array(byteNumbers));
+      }
+      return new Blob(byteArrays, { type: mime });
+    }
+
+    function playAudio(index) {
+      console.log('Attempting to play audio for index:', index);
+      const url = ttsAudioMap.get(index);
+      if (!url) {
+        console.log('No audio URL found for index:', index);
+        document.getElementById('error').textContent = "No audio available yet!";
+        return;
+      }
+      console.log('Playing audio from URL:', url);
+      const audio = new Audio();
+      audio.src = url;
+      audio.type = 'audio/mpeg';
+      
+      audio.onerror = (error) => {
+        console.error('Error playing audio:', error);
+        document.getElementById('error').textContent = "Error playing audio";
+      };
+      
+      audio.onloadeddata = () => {
+        console.log('Audio data loaded successfully');
+        audio.play().catch(err => {
+          console.warn("Audio play blocked:", err);
+          document.getElementById('error').textContent = "Audio playback blocked. Please try again.";
+        });
+      };
+      
+      audio.onended = () => {
+        console.log('Audio playback finished');
+        document.getElementById('error').textContent = "";
+      };
+      
+      audio.load();
+    }
+
+    // Handle Enter key
+    document.getElementById('message').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        send();
+      }
+    });
+
+    // Initialize WebSocket connection
+    connectWebSocket();
+  </script>
+</body>
+</html>
