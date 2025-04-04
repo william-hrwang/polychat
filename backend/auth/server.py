@@ -364,12 +364,19 @@ class AuthService(AuthServiceServicer):
             conn.close()
 
     def UpdateProfile(self, request, context):
-        username = self.verify_token(request.token)
-        if not username:
+        token_username = self.verify_token(request.token)
+        if not token_username:
             return ProfileResponse(
                 success=False,
                 message="Invalid or expired token"
             )
+
+        if request.username != token_username:
+            return ProfileResponse(
+                success=False,
+                message="Token username mismatch"
+            )
+
 
         conn = safe_connect(self.db_path)
         c = conn.cursor()

@@ -8,6 +8,10 @@ import raftos
 import json
 import sys
 from concurrent.futures import ThreadPoolExecutor
+import logging
+
+# Enable RAFTOS debug logs
+logging.basicConfig(level=logging.INFO)
 
 class ChatService(chat_pb2_grpc.ChatServiceServicer):
     def __init__(self, node_id, peers):
@@ -22,31 +26,55 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
         # RAFT configuration
         raftos.configure({
             'log_path': f'/tmp/{node_id}/',
-            'db_path': f'/tmp/{node_id}/db'
+            'db_path': f'/tmp/{node_id}/db',
+            'election_min_timeout': 1000,
+            'election_max_timeout': 2000
         })
 
         peer_addresses = [f'127.0.0.1:{50060 + peer}' for peer in peers if peer != node_id]
         self_address = f'127.0.0.1:{50060 + node_id}'
-        print(f"[Node {self.node_id}] Registering with peers: {peer_addresses}")
+        print(f"[Node {self.node_id}] 🚀 Registering with peers: {peer_addresses}")
 
         self.message_log = raftos.Replicated(name='chat_log')
         self.register_task = raftos.register(self_address, cluster=peer_addresses)
 
+    async def register(self):
+        await self.register_task
+        print(f"[Node {self.node_id}] ✅ Registered with RAFT cluster")
+
+    async def wait_for_leader(self, retries=10, delay=1):
+        for attempt in range(retries):
+            leader_coro = raftos.get_leader()
+            leader = await leader_coro if asyncio.iscoroutine(leader_coro) else leader_coro
+            print(f"[Node {self.node_id}] 🔍 raftos.get_leader() returned: {leader}")
+            if leader:
+                return leader
+            await asyncio.sleep(delay)
+        print(f"[Node {self.node_id}] ❌ No leader elected after {retries} retries.")
+        return None
+
     async def translate_text(self, text, lang='en'):
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(self.executor, lambda: 
-            self.translator.TranslateText(translate_pb2.TranslateRequest(text=text, target_lang=lang))
-        )
+        return await loop.run_in_executor(self.executor, lambda: self.translator.TranslateText(
+            translate_pb2.TranslateRequest(text=text, target_lang=lang)))
 
     async def SendMessage(self, request, context):
-        leader = await raftos.get_leader()
-        print(f"[Node {self.node_id}] Current leader: {leader}")
+        print(f"📨 Received SendMessage from {request.username} with text: {request.message}")
+
+        leader = await self.wait_for_leader()
+        if not leader:
+            return chat_pb2.ChatAck(success=False)
 
         if leader != f'127.0.0.1:{50060 + self.node_id}':
             print(f"[Node {self.node_id}] ❌ Rejected message from {request.username} — not the leader")
             return chat_pb2.ChatAck(success=False)
 
-        translation_reply = await self.translate_text(request.message, 'en')
+        try:
+            translation_reply = await self.translate_text(request.message, 'en')
+            print(f"[Node {self.node_id}] 🧪 Translated text: {translation_reply.translated_text}")
+        except Exception as e:
+            print(f"[Node {self.node_id}] ❌ Translation failed: {e}")
+            return chat_pb2.ChatAck(success=False)
 
         message = {
             'username': request.username,
@@ -55,34 +83,50 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
             'language': request.language
         }
 
-        print(f"[Node {self.node_id}] Appending message: {message['original']}")
-        await self.message_log.append(json.dumps(message))
+        print(f"[Node {self.node_id}] 📇 Appending message: {message['original']}")
+        # Retrieve the current log (or initialize as empty list)
+        current_log = await self.message_log.get() or []
+
+        # Append the new message
+        current_log.append(json.dumps(message))
+
+        # Update the replicated log with the new list
+        await self.message_log.set(current_log)
+
         return chat_pb2.ChatAck(success=True)
 
     async def StreamMessages(self, request, context):
+        print(f"[Node {self.node_id}] 🥵 StreamMessages started for user: {request.username}")
+
         class Writer:
-            def __init__(self):
+            def __init__(self,node_id):
                 self.queue = []
+                self.node_id = node_id
             def write(self, msg):
+                print(f"[Node {self.node_id}] 🗳️ Writing to queue: {msg.username}: {msg.message}")
                 self.queue.append(msg)
 
-        writer = Writer()
+        writer = Writer(self.node_id)
+
         self.clients.append(writer)
 
         async def stream_loop():
             last_index = 0
             while True:
-                log = await self.message_log.get()
-                if log and len(log) > last_index:
-                    for i in range(last_index, len(log)):
-                        msg = json.loads(log[i])
-                        writer.write(chat_pb2.ChatMessage(
-                            username=msg['username'],
-                            message=msg['message'],
-                            original=msg['original'],
-                            language=msg['language']
-                        ))
-                    last_index = len(log)
+                try:
+                    log = await self.message_log.get()
+                    if log and len(log) > last_index:
+                        for i in range(last_index, len(log)):
+                            msg = json.loads(log[i])
+                            writer.write(chat_pb2.ChatMessage(
+                                username=msg['username'],
+                                message=msg['message'],
+                                original=msg['original'],
+                                language=msg['language']
+                            ))
+                        last_index = len(log)
+                except Exception as e:
+                    print(f"[Node {self.node_id}] ❌ Error in stream_loop: {e}")
                 await asyncio.sleep(1)
 
         asyncio.create_task(stream_loop())
@@ -109,7 +153,7 @@ async def serve():
     grpc_port = 50060 + node_id
     server = grpc.aio.server()
     chat_service = ChatService(node_id, peers)
-    await chat_service.register_task
+    await chat_service.register()
     chat_pb2_grpc.add_ChatServiceServicer_to_server(chat_service, server)
     server.add_insecure_port(f'[::]:{grpc_port}')
     await server.start()
