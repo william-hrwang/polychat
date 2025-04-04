@@ -10,6 +10,11 @@ from auth_pb2 import *
 from auth_pb2_grpc import AuthServiceServicer
 
 import shutil
+import sys
+
+# Add the parent directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config_loader import load_config
 
 def backup_sqlite_db():
     original_db = 'users.db'
@@ -674,11 +679,20 @@ class AuthService(AuthServiceServicer):
             conn.close()
 
 def serve():
+    config = load_config('auth')
+    if not config:
+        print("❌ Failed to load configuration. Using default port 50053")
+        port = 50053
+        host = '0.0.0.0'
+    else:
+        port = config['port']
+        host = config['host']
+    
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     auth_pb2_grpc.add_AuthServiceServicer_to_server(AuthService(), server)
-    server.add_insecure_port('[::]:50053')
+    server.add_insecure_port(f'{host}:{port}')
     server.start()
-    print("🔐 AuthService running at [::]:50053")
+    print(f"🔐 AuthService running at {host}:{port}")
     server.wait_for_termination()
 
 if __name__ == '__main__':

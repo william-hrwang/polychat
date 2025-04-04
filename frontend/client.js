@@ -7,6 +7,11 @@ const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
 const multer = require('multer');
+const { loadConfig } = require('./config_loader');
+
+// Load configuration
+const config = loadConfig();
+
 // Configure multer to store files in memory and log details
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -43,15 +48,18 @@ const authProto = grpc.loadPackageDefinition(authPackageDef).auth;
 
 // gRPC clients
 const chatClient = new chatProto.ChatService(
-  'localhost:50052', grpc.credentials.createInsecure()
+  `${config.services.chat.host}:${config.services.chat.port}`,
+  grpc.credentials.createInsecure()
 );
 
 const ttsClient = new ttsProto.TTSService(
-  'localhost:50054', grpc.credentials.createInsecure()
+  `${config.services.tts.host}:${config.services.tts.port}`,
+  grpc.credentials.createInsecure()
 );
 
 const authClient = new authProto.AuthService(
-  'localhost:50053', grpc.credentials.createInsecure()
+  `${config.services.auth.host}:${config.services.auth.port}`,
+  grpc.credentials.createInsecure()
 );
 
 // Connected WebSocket clients
@@ -549,9 +557,10 @@ server.on('close', () => {
 });
 
 // Start the server
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
+const PORT = config.server.port;
+const HOST = config.server.host;
+server.listen(PORT, HOST, () => {
+  console.log(`🚀 Server running at http://${HOST}:${PORT}`);
   console.log(`📡 WebSocket server ready for connections`);
 });
 

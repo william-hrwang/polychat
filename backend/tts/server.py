@@ -5,6 +5,12 @@ import tts_pb2_grpc
 from gtts import gTTS
 import io
 import logging
+import sys
+import os
+
+# Add the parent directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config_loader import load_config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -44,11 +50,20 @@ class TTSService(tts_pb2_grpc.TTSServiceServicer):
             return tts_pb2.AudioReply()
 
 def serve():
+    config = load_config('tts')
+    if not config:
+        print("❌ Failed to load configuration. Using default port 50054")
+        port = 50054
+        host = '0.0.0.0'
+    else:
+        port = config['port']
+        host = config['host']
+    
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     tts_pb2_grpc.add_TTSServiceServicer_to_server(TTSService(), server)
-    server.add_insecure_port('[::]:50054')
+    server.add_insecure_port(f'{host}:{port}')
     server.start()
-    logger.info("🔊 TTSService running at [::]:50054")
+    logger.info(f"🔊 TTSService running at {host}:{port}")
     server.wait_for_termination()
 
 if __name__ == '__main__':

@@ -4,6 +4,12 @@ import chat_pb2
 import chat_pb2_grpc
 import translate_pb2
 import translate_pb2_grpc
+import sys
+import os
+
+# Add the parent directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config_loader import load_config
 
 class ChatService(chat_pb2_grpc.ChatServiceServicer):
     def __init__(self):
@@ -44,11 +50,20 @@ class ChatService(chat_pb2_grpc.ChatServiceServicer):
 
 
 def serve():
+    config = load_config('chat')
+    if not config:
+        print("❌ Failed to load configuration. Using default port 50052")
+        port = 50052
+        host = '0.0.0.0'
+    else:
+        port = config['port']
+        host = config['host']
+    
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     chat_pb2_grpc.add_ChatServiceServicer_to_server(ChatService(), server)
-    server.add_insecure_port('[::]:50052')
+    server.add_insecure_port(f'{host}:{port}')
     server.start()
-    print("✅ ChatService started on [::]:50052")
+    print(f"✅ ChatService started on {host}:{port}")
     server.wait_for_termination()
 
 if __name__ == '__main__':

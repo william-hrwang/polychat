@@ -55,105 +55,73 @@ The application is built using a microservices architecture:
 
 ## Prerequisites
 
-- Python 3.7+
-- Node.js 14+
-- gRPC tools
-- FFmpeg (for audio processing)
-- Modern web browser with WebSocket support
+- [Conda](https://docs.conda.io/en/latest/miniconda.html) or [Anaconda](https://www.anaconda.com/products/distribution)
+- [Node.js](https://nodejs.org/) (v14 or higher)
+- [npm](https://www.npmjs.com/) (comes with Node.js)
 
-## Installation
+## Setup
 
 1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/polychat.git
-cd polychat
-```
+   ```bash
+   git clone https://github.com/yourusername/polychat.git
+   cd polychat
+   ```
 
-2. Install backend dependencies:
-```bash
-cd backend
-pip install -r requirements.txt
-```
+2. Run the setup script to create the conda environment and install dependencies:
+   ```bash
+   ./setup.sh
+   ```
 
-3. Install frontend dependencies:
-```bash
-cd frontend
-npm install
-```
-
-4. Generate gRPC code:
-```bash
-cd backend
-python3 -m grpc_tools.protoc -I gateway --python_out=gateway --grpc_python_out=gateway gateway/chat.proto
-python3 -m grpc_tools.protoc -I translation --python_out=translation --grpc_python_out=translation translation/translate.proto
-python3 -m grpc_tools.protoc -I tts --python_out=tts --grpc_python_out=tts tts/tts.proto
-python3 -m grpc_tools.protoc -I auth --python_out=auth --grpc_python_out=auth auth/auth.proto
-```
+   This script will:
+   - Create a conda environment named 'polychat'
+   - Install required Python packages
+   - Install Node.js dependencies
 
 ## Running the Application
 
-1. Start the backend services:
-```bash
-# Start Chat Service
-cd backend/chat
-python3 server.py
+1. Start all services:
+   ```bash
+   ./start.sh
+   ```
 
-# Start TTS Service
-cd backend/tts
-python3 server.py
+   This will start:
+   - Translation service (port 50051)
+   - Chat service (port 50052)
+   - Auth service (port 50053)
+   - TTS service (port 50054)
+   - Frontend server (port 8080)
 
-# Start Auth Service
-cd backend/auth
-python3 server.py
+2. Access the application:
+   - Open your browser and navigate to http://localhost:8080
 
-# Start Translate Service
-cd backend/translation
-python3 server.py
-```
+3. Stop all services:
+   ```bash
+   ./stop.sh
+   ```
 
-2. Start the frontend server:
-```bash
-cd frontend
-node client.js
-```
+## Configuration
 
-3. Open your browser and navigate to:
-```
-http://localhost:8080
-```
+The application uses configuration files to manage ports and service connections:
 
-## Usage
+- `config/backend_config.json`: Configuration for backend services
+- `config/frontend_config.json`: Configuration for frontend server and service connections
 
-1. Register a new account or log in with existing credentials
-2. Select your preferred language from the dropdown (English, French, or Chinese)
-3. Type your message and press Enter or click Send
-4. Messages will be automatically translated to the recipient's language
-5. Use the 🔊 button (positioned on the right of each message) to play the audio version
-6. View other users' online status and last seen times
-7. Update your profile information and avatar
-8. Messages will show both original and translated text when applicable
+You can modify these files to change ports or host settings.
 
-## API Endpoints
+## Troubleshooting
 
-### Authentication
-- `POST /api/register`: Register a new user
-- `POST /api/login`: Log in with credentials
-- `GET /api/profile`: Get user profile
-- `PUT /api/profile`: Update user profile
-- `POST /api/logout`: Log out current user
+- If you encounter any issues with the conda environment, try recreating it:
+  ```bash
+  ./setup.sh
+  ```
+  When prompted, choose 'y' to recreate the environment.
 
-### Chat
-- WebSocket connection for real-time messaging
-- Message history retrieval
-- Audio processing and delivery
+- If services fail to start, check the logs for error messages.
 
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+- If you need to manually stop a service, use the stop script:
+  ```bash
+  ./stop.sh
+  ```
 
 ## License
 
