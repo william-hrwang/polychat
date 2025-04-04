@@ -33,11 +33,8 @@ PolyChat is a real-time multilingual chat application that enables seamless comm
   - User avatars
   - Responsive design for all devices
   - Modern UI with smooth animations
-
-   **Backup System
-   - when primary database failed, it will swtich to backup system
-   - when the primary database are not found, it will copy direct from the backup stored before
-   - backup system has syc up with the primary everytime a new record stored
+    
+   **Backup System -Automatic Database Backup -After every critical operation (e.g., registration, login, profile update, avatar upload), the system creates a fresh backup of users.db as users_backup.db. -Self-Healing on Startup -On initialization, the service checks if users.db is missing or corrupted. -If it is, the service automatically restores it from the latest users_backup.db. -Resilience Against Data Loss -Ensures high availability of authentication services by maintaining a real-time synced backup.- -Developer-Friendly Logging -Clear and consistent console logs at each stage (registration, backup, restoration, etc.) to aid in debugging and monitoring. -Ready for Runtime Fallback (Extendable) -The system is structured so runtime backup restoration logic can be added in future, allowing recovery even if the database is lost during operation.
 
 ## Architecture
 
