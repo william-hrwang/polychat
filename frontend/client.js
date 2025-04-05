@@ -7,12 +7,18 @@ const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
 const multer = require('multer');
+<<<<<<< HEAD
 
 
 // Configure multer to store files in memory and log details
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+=======
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, 
+>>>>>>> RAFT-2
   fileFilter: (req, file, cb) => {
     console.log('Multer processing file:', file.originalname, file.mimetype);
     if (file.mimetype.startsWith('image/')) {
@@ -30,7 +36,11 @@ const chatProto = grpc.loadPackageDefinition(chatPackageDef).chat;
 const ttsPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/tts.proto'));
 const ttsProto = grpc.loadPackageDefinition(ttsPackageDef).tts;
 
+<<<<<<< HEAD
 // const authPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/auth.proto'));
+=======
+
+>>>>>>> RAFT-2
 const authPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/auth.proto'), {
   keepCase: true,
   longs: String,
@@ -38,16 +48,27 @@ const authPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/auth.prot
   defaults: true,
   oneofs: true,
   includeDirs: [path.join(__dirname, 'grpc')],
+<<<<<<< HEAD
   bytes: Buffer 
+=======
+  bytes: Buffer  
+>>>>>>> RAFT-2
 });
 
 const authProto = grpc.loadPackageDefinition(authPackageDef).auth;
 
 // gRPC clients
 const chatClient = new chatProto.ChatService(
+<<<<<<< HEAD
   'localhost:50052', grpc.credentials.createInsecure()
 );
 
+=======
+  'localhost:50061', grpc.credentials.createInsecure() 
+);
+
+
+>>>>>>> RAFT-2
 const ttsClient = new ttsProto.TTSService(
   'localhost:50054', grpc.credentials.createInsecure()
 );
@@ -65,6 +86,11 @@ app.use(bodyParser.json());
 
 // Add multer middleware for handling form data
 app.use(express.urlencoded({ extended: true }));
+<<<<<<< HEAD
+=======
+
+// Serve static files
+>>>>>>> RAFT-2
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Deckard Add, Status Check
@@ -99,7 +125,11 @@ app.post('/api/register', upload.single('avatar'), (req, res) => {
   console.log('Request body:', req.body);
   console.log('Request file:', req.file);
   
+<<<<<<< HEAD
   // Convert form data to the format expected by gRPC
+=======
+ 
+>>>>>>> RAFT-2
   const registerRequest = {
     username: req.body.username,
     email: req.body.email,
@@ -108,14 +138,22 @@ app.post('/api/register', upload.single('avatar'), (req, res) => {
     avatar_url: req.body.avatar_url
   };
 
+<<<<<<< HEAD
   // If there's an avatar file, add it to the request
+=======
+  
+>>>>>>> RAFT-2
   if (req.file) {
     console.log('Processing avatar file:', {
       originalname: req.file.originalname,
       mimetype: req.file.mimetype,
       size: req.file.buffer.length
     });
+<<<<<<< HEAD
     // Convert the buffer to a proper Buffer object
+=======
+    
+>>>>>>> RAFT-2
     registerRequest.avatar_data = req.file.buffer;
   }
   
@@ -249,7 +287,11 @@ app.post('/api/upload-avatar', (req, res, next) => {
   });
 });
 
+<<<<<<< HEAD
 // Avatar retrieval
+=======
+// Avatar retrieval endpoint
+>>>>>>> RAFT-2
 app.get('/api/avatar/:username', (req, res) => {
   console.log('Avatar request received for username:', req.params.username);
   
@@ -279,12 +321,20 @@ app.get('/api/avatar/:username', (req, res) => {
 
     if (response.image_data) {
       console.log('Sending binary image data');
+<<<<<<< HEAD
       // If have binary image data, send it directly
+=======
+      // If we have binary image data, send it directly
+>>>>>>> RAFT-2
       res.set('Content-Type', response.image_mimetype || 'image/jpeg');
       res.send(response.image_data);
     } else if (response.image_url) {
       console.log('Redirecting to image URL:', response.image_url);
+<<<<<<< HEAD
       // If have a URL, redirect to it
+=======
+      // If we have a URL, redirect to it
+>>>>>>> RAFT-2
       res.redirect(response.image_url);
     } else {
       console.log('No avatar data found, sending default avatar');
@@ -298,7 +348,14 @@ app.get('/api/avatar/:username', (req, res) => {
   });
 });
 
+<<<<<<< HEAD
 const server = http.createServer(app);
+=======
+// Create HTTP server
+const server = http.createServer(app);
+
+// WebSocket server
+>>>>>>> RAFT-2
 const wss = new WebSocket.Server({
   server,
   path: '/',
@@ -408,7 +465,11 @@ wss.on('connection', (ws, req) => {
     }
 
     const username = response.username;
+<<<<<<< HEAD
     console.log(`New client connected: ${username}`);
+=======
+    console.log(`🧠 New client connected: ${username}`);
+>>>>>>> RAFT-2
     
     // Store client connection
     clients.set(username, { ws, token }); // Store token with WebSocket //Deckard Add, Status Check
@@ -458,7 +519,11 @@ wss.on('connection', (ws, req) => {
     });
 
     ws.on('close', () => {
+<<<<<<< HEAD
       console.log(`Client disconnected: ${username}`);
+=======
+      console.log(`👋 Client disconnected: ${username}`);
+>>>>>>> RAFT-2
       clients.delete(username);
       
       // Update offline status
@@ -480,7 +545,11 @@ wss.on('connection', (ws, req) => {
 const stream = chatClient.StreamMessages({ username: 'server' });
 
 stream.on('data', (msg) => {
+<<<<<<< HEAD
   console.log("Received from gRPC stream:", msg);
+=======
+  console.log("📥 Received from gRPC stream:", msg);
+>>>>>>> RAFT-2
   
   // Add message to chat history
   chatHistory.push(msg);
@@ -501,7 +570,11 @@ stream.on('data', (msg) => {
     }
   });
   
+<<<<<<< HEAD
   console.log(`Message broadcast to clients: ${messageRecipients.join(', ') || 'none'}`);
+=======
+  console.log(`📤 Message broadcast to clients: ${messageRecipients.join(', ') || 'none'}`);
+>>>>>>> RAFT-2
   
   // Call TTS
   ttsClient.TextToSpeech({ text: msg.message }, (err, response) => {
@@ -510,16 +583,27 @@ stream.on('data', (msg) => {
       return;
     }
     
+<<<<<<< HEAD
     console.log("TTS raw response:", response);
     
     if (!response || !response.audioData) {
       console.warn("No audio data received from TTS service.");
+=======
+    console.log("📦 TTS raw response:", response);
+    
+    if (!response || !response.audioData) {
+      console.warn("⚠️ No audio data received from TTS service.");
+>>>>>>> RAFT-2
       return;
     }
     
     // Convert the binary data to base64
     const audioData = Buffer.from(response.audioData).toString('base64');
+<<<<<<< HEAD
     console.log("TTS audio data length:", audioData.length);
+=======
+    console.log("📦 TTS audio data length:", audioData.length);
+>>>>>>> RAFT-2
     const audioPayload = JSON.stringify({
       type: 'audio',
       audio: audioData,
@@ -534,7 +618,11 @@ stream.on('data', (msg) => {
       }
     });
     
+<<<<<<< HEAD
     console.log(`Audio broadcast to clients: ${audioRecipients.join(', ') || 'none'}`);
+=======
+    console.log(`🔊 Audio broadcast to clients: ${audioRecipients.join(', ') || 'none'}`);
+>>>>>>> RAFT-2
   });
 });
 
@@ -548,12 +636,20 @@ server.on('close', () => {
 // Start the server
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
+<<<<<<< HEAD
   console.log(`Server running at http://localhost:${PORT}`);
   console.log(`WebSocket server ready for connections`);
 });
 
 
 // Test Message
+=======
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(`📡 WebSocket server ready for connections`);
+});
+
+
+>>>>>>> RAFT-2
 // grpcClient.SendMessage({
 //     username: 'test_user',
 //     message: 'Hello World!',

@@ -4,28 +4,44 @@ PolyChat is a real-time multilingual chat application that enables seamless comm
 
 ## Features
 
+<<<<<<< HEAD
 - **Real-time Multilingual Chat**
+=======
+- 🌐 **Real-time Multilingual Chat**
+>>>>>>> RAFT-2
   - Automatic translation between multiple languages
   - Support for English, French, and Chinese
   - Real-time message delivery
   - Message history preservation
   - Original and translated text display
 
+<<<<<<< HEAD
 - **Text-to-Speech (TTS)**
+=======
+- 🔊 **Text-to-Speech (TTS)**
+>>>>>>> RAFT-2
   - Convert messages to speech
   - Play messages in their original language
   - Support for multiple languages
   - Volume control button positioned for easy access
   - Audio processing status indicators
 
+<<<<<<< HEAD
 - **User Authentication & Profiles**
+=======
+- 👤 **User Authentication & Profiles**
+>>>>>>> RAFT-2
   - Secure user registration and login
   - User profiles with avatars
   - Online/offline status tracking
   - Last seen timestamps
   - Profile customization options
 
+<<<<<<< HEAD
 - **Chat Features**
+=======
+- 💬 **Chat Features**
+>>>>>>> RAFT-2
   - Public chatroom
   - Message history
   - Real-time message updates
@@ -34,6 +50,7 @@ PolyChat is a real-time multilingual chat application that enables seamless comm
   - Responsive design for all devices
   - Modern UI with smooth animations
 
+<<<<<<< HEAD
 - **RAFT**
   - Leader Election: The system uses the Raft consensus protocol to elect a leader among a cluster of nodes. Only the leader is authorized to process and append new messages, ensuring there’s a single source of truth for the log.
     
@@ -57,6 +74,12 @@ PolyChat is a real-time multilingual chat application that enables seamless comm
   - Clear and consistent console logs at each stage (registration, backup, restoration, etc.) to aid in debugging and monitoring. 
   - Ready for Runtime Fallback (Extendable) 
   - The system is structured so runtime backup restoration logic can be added in future, allowing recovery even if the database is lost during operation.
+=======
+   **Backup System
+   - when primary database failed, it will swtich to backup system
+   - when the primary database are not found, it will copy direct from the backup stored before
+   - backup system has syc up with the primary everytime a new record stored
+>>>>>>> RAFT-2
 
 ## Architecture
 
@@ -71,11 +94,18 @@ The application is built using a microservices architecture:
   - Chat Service (gRPC): Handles message routing and translation
   - TTS Service (gRPC): Converts text to speech
   - Auth Service (gRPC): Manages user authentication and profiles
+<<<<<<< HEAD
   - Translate Service (gRPC): Use Google Translate API to translate message
 
 ## Prerequisites
 
 - Python 3.9
+=======
+
+## Prerequisites
+
+- Python 3.7+
+>>>>>>> RAFT-2
 - Node.js 14+
 - gRPC tools
 - FFmpeg (for audio processing)
@@ -114,6 +144,7 @@ python3 -m grpc_tools.protoc -I auth --python_out=auth --grpc_python_out=auth au
 
 1. Start the backend services:
 ```bash
+<<<<<<< HEAD
 # Start RAFT node 1 2 3
 cd backend/gateway
 
@@ -125,6 +156,11 @@ python3 server.py 2 1 3
 
 # Node 3 (Follower)
 python3 server.py 3 1 2
+=======
+# Start Chat Service
+cd backend/chat
+python3 server.py
+>>>>>>> RAFT-2
 
 # Start TTS Service
 cd backend/tts
@@ -137,10 +173,13 @@ python3 server.py
 # Start Translate Service
 cd backend/translation
 python3 server.py
+<<<<<<< HEAD
 
 # Start Chat Service
 cd backend/gateway
 python3 server.py
+=======
+>>>>>>> RAFT-2
 ```
 
 2. Start the frontend server:
@@ -161,8 +200,14 @@ http://localhost:8080
 3. Type your message and press Enter or click Send
 4. Messages will be automatically translated to the recipient's language
 5. Use the 🔊 button (positioned on the right of each message) to play the audio version
+<<<<<<< HEAD
 6. View other users' online status
 7. Messages will show both original and translated text when applicable
+=======
+6. View other users' online status and last seen times
+7. Update your profile information and avatar
+8. Messages will show both original and translated text when applicable
+>>>>>>> RAFT-2
 
 ## API Endpoints
 
@@ -180,7 +225,19 @@ http://localhost:8080
 
 ## Contributing
 
+<<<<<<< HEAD
 The project is contributed by UWO CS9644 Group 6
+=======
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+>>>>>>> RAFT-2
 
 ## Acknowledgments
 
@@ -188,4 +245,8 @@ The project is contributed by UWO CS9644 Group 6
 - WebSocket for real-time communication
 - Google Cloud Translation API for language translation
 - Google Cloud Text-to-Speech API for voice synthesis
+<<<<<<< HEAD
 - Inter font family for modern typography 
+=======
+- Inter font family for modern typography 
+>>>>>>> RAFT-2
