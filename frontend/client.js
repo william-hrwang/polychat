@@ -7,10 +7,9 @@ const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
 const multer = require('multer');
-// Configure multer to store files in memory and log details
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 }, 
   fileFilter: (req, file, cb) => {
     console.log('Multer processing file:', file.originalname, file.mimetype);
     if (file.mimetype.startsWith('image/')) {
@@ -28,7 +27,7 @@ const chatProto = grpc.loadPackageDefinition(chatPackageDef).chat;
 const ttsPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/tts.proto'));
 const ttsProto = grpc.loadPackageDefinition(ttsPackageDef).tts;
 
-// const authPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/auth.proto'));
+
 const authPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/auth.proto'), {
   keepCase: true,
   longs: String,
@@ -36,14 +35,14 @@ const authPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/auth.prot
   defaults: true,
   oneofs: true,
   includeDirs: [path.join(__dirname, 'grpc')],
-  bytes: Buffer  // 👈 THIS IS THE FIX
+  bytes: Buffer  
 });
 
 const authProto = grpc.loadPackageDefinition(authPackageDef).auth;
 
 // gRPC clients
 const chatClient = new chatProto.ChatService(
-  'localhost:50061', grpc.credentials.createInsecure() // Node 1 for example
+  'localhost:50061', grpc.credentials.createInsecure() 
 );
 
 
@@ -100,7 +99,7 @@ app.post('/api/register', upload.single('avatar'), (req, res) => {
   console.log('Request body:', req.body);
   console.log('Request file:', req.file);
   
-  // Convert form data to the format expected by gRPC
+ 
   const registerRequest = {
     username: req.body.username,
     email: req.body.email,
@@ -109,14 +108,14 @@ app.post('/api/register', upload.single('avatar'), (req, res) => {
     avatar_url: req.body.avatar_url
   };
 
-  // If there's an avatar file, add it to the request
+  
   if (req.file) {
     console.log('Processing avatar file:', {
       originalname: req.file.originalname,
       mimetype: req.file.mimetype,
       size: req.file.buffer.length
     });
-    // Convert the buffer to a proper Buffer object
+    
     registerRequest.avatar_data = req.file.buffer;
   }
   
