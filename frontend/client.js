@@ -7,6 +7,8 @@ const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
 const multer = require('multer');
+
+
 // Configure multer to store files in memory and log details
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -36,7 +38,7 @@ const authPackageDef = protoLoader.loadSync(path.join(__dirname, 'grpc/auth.prot
   defaults: true,
   oneofs: true,
   includeDirs: [path.join(__dirname, 'grpc')],
-  bytes: Buffer  // 👈 THIS IS THE FIX
+  bytes: Buffer 
 });
 
 const authProto = grpc.loadPackageDefinition(authPackageDef).auth;
@@ -237,8 +239,8 @@ app.post('/api/upload-avatar', (req, res, next) => {
       token: token,
       image_data: Buffer.from(req.file.buffer)
     }, (err, response) => {
-      console.log('👉 UploadAvatar sending image_data length:', req.file.buffer.length);
-      console.log("🧪 Type of image_data:", Buffer.isBuffer(req.file.buffer));
+      console.log('UploadAvatar sending image_data length:', req.file.buffer.length);
+      console.log("Type of image_data:", Buffer.isBuffer(req.file.buffer));
 
       if (err) {
         console.error('gRPC UploadAvatar error:', err);
@@ -412,7 +414,7 @@ wss.on('connection', (ws, req) => {
     }
 
     const username = response.username;
-    console.log(`🧠 New client connected: ${username}`);
+    console.log(`New client connected: ${username}`);
     
     // Store client connection
     clients.set(username, { ws, token }); // Store token with WebSocket //Deckard Add, Status Check
@@ -462,7 +464,7 @@ wss.on('connection', (ws, req) => {
     });
 
     ws.on('close', () => {
-      console.log(`👋 Client disconnected: ${username}`);
+      console.log(`Client disconnected: ${username}`);
       clients.delete(username);
       
       // Update offline status
@@ -484,7 +486,7 @@ wss.on('connection', (ws, req) => {
 const stream = chatClient.StreamMessages({ username: 'server' });
 
 stream.on('data', (msg) => {
-  console.log("📥 Received from gRPC stream:", msg);
+  console.log("Received from gRPC stream:", msg);
   
   // Add message to chat history
   chatHistory.push(msg);
@@ -505,7 +507,7 @@ stream.on('data', (msg) => {
     }
   });
   
-  console.log(`📤 Message broadcast to clients: ${messageRecipients.join(', ') || 'none'}`);
+  console.log(`Message broadcast to clients: ${messageRecipients.join(', ') || 'none'}`);
   
   // Call TTS
   ttsClient.TextToSpeech({ text: msg.message }, (err, response) => {
@@ -514,16 +516,16 @@ stream.on('data', (msg) => {
       return;
     }
     
-    console.log("📦 TTS raw response:", response);
+    console.log("TTS raw response:", response);
     
     if (!response || !response.audioData) {
-      console.warn("⚠️ No audio data received from TTS service.");
+      console.warn("No audio data received from TTS service.");
       return;
     }
     
     // Convert the binary data to base64
     const audioData = Buffer.from(response.audioData).toString('base64');
-    console.log("📦 TTS audio data length:", audioData.length);
+    console.log("TTS audio data length:", audioData.length);
     const audioPayload = JSON.stringify({
       type: 'audio',
       audio: audioData,
@@ -538,7 +540,7 @@ stream.on('data', (msg) => {
       }
     });
     
-    console.log(`🔊 Audio broadcast to clients: ${audioRecipients.join(', ') || 'none'}`);
+    console.log(`Audio broadcast to clients: ${audioRecipients.join(', ') || 'none'}`);
   });
 });
 
@@ -552,11 +554,12 @@ server.on('close', () => {
 // Start the server
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
-  console.log(`📡 WebSocket server ready for connections`);
+  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`WebSocket server ready for connections`);
 });
 
 
+// Example gRPC call to send a message
 // grpcClient.SendMessage({
 //     username: 'test_user',
 //     message: 'Hello World!',

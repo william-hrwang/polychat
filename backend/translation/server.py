@@ -17,7 +17,7 @@ def serve():
     translate_pb2_grpc.add_TranslationServiceServicer_to_server(TranslationService(), server)
     server.add_insecure_port('[::]:50052')
     server.start()
-    print("✅ TranslationService started on [::]:50052") 
+    print("TranslationService started on [::]:50052") 
     server.wait_for_termination()
 
 if __name__ == '__main__':
